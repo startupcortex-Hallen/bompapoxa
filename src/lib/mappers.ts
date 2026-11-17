@@ -5,7 +5,9 @@ import type {
   Banner,
   Categoria,
   Combo,
+  ComboGrupo,
   ComboItem,
+  ComboOpcao,
   Configuracoes,
   Cupom,
   HistoricoPedido,
@@ -131,7 +133,31 @@ export function mapComboItem(row: Row): ComboItem {
   };
 }
 
-export function mapCombo(row: Row, itens: ComboItem[]): Combo {
+export function mapComboOpcao(row: Row): ComboOpcao {
+  return {
+    id: textoOu(row.id),
+    grupo_id: textoOu(row.grupo_id),
+    produto_id: textoOu(row.produto_id),
+    quantidade: numero(row.quantidade),
+    rotulo: texto(row.rotulo),
+    ordem: numero(row.ordem),
+  };
+}
+
+export function mapComboGrupo(row: Row, opcoes: ComboOpcao[]): ComboGrupo {
+  return {
+    id: textoOu(row.id),
+    combo_id: textoOu(row.combo_id),
+    nome: textoOu(row.nome),
+    min_qtd: numero(row.min_qtd),
+    max_qtd: numero(row.max_qtd),
+    obrigatorio: row.obrigatorio !== false,
+    ordem: numero(row.ordem),
+    opcoes,
+  };
+}
+
+export function mapCombo(row: Row, itens: ComboItem[], grupos: ComboGrupo[] = []): Combo {
   return {
     id: textoOu(row.id),
     nome: textoOu(row.nome),
@@ -145,6 +171,7 @@ export function mapCombo(row: Row, itens: ComboItem[]): Combo {
     created_at: textoOu(row.created_at),
     updated_at: textoOu(row.updated_at),
     itens,
+    grupos,
   };
 }
 

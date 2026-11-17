@@ -3,9 +3,12 @@ import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckCircle2,
+  Copy,
   MapPin,
+  MessageCircle,
   MessageSquare,
   LoaderCircle,
+  QrCode,
   ShoppingBag,
   Store,
   Ticket,
@@ -13,7 +16,7 @@ import {
   Truck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/modal";
 import { Input, Select, Textarea } from "@/components/ui/form";
 import { EstadoVazio } from "@/components/ui/feedback";
@@ -26,7 +29,7 @@ import {
   type Coordenadas,
   type EnderecoGeocodificado,
 } from "@/lib/geocoding";
-import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL } from "@/lib/order-status";
+import { MODALIDADE_LABEL } from "@/lib/order-status";
 import type { FormaPagamento, Modalidade, ResultadoPedido } from "@/lib/types";
 import type { Configuracoes } from "@/lib/types";
 import { paraPayload, type ItemCarrinho } from "@/lib/cart";
@@ -35,6 +38,43 @@ import { cn } from "@/lib/utils";
 import { MapaEndereco } from "./MapaEndereco";
 
 type Etapa = "sacola" | "dados" | "sucesso";
+
+const WHATSAPP_PEDIDOS = "5577998654823";
+
+const PIX_RECEBEDOR = {
+  nome: "João Victor Carvalho de Jesus",
+  chave: "77998654823",
+  tipo: "Telefone",
+} as const;
+
+type PagamentoCheckout = "pix" | "dinheiro" | "cartao_credito" | "cartao_debito";
+
+const PAGAMENTO_LABEL: Record<PagamentoCheckout, string> = {
+  pix: "PIX (antecipado)",
+  dinheiro: "Dinheiro",
+  cartao_credito: "Cartão de crédito (máquina)",
+  cartao_debito: "Cartão de débito (máquina)",
+};
+
+function opcoesPagamento(formas: string[]): PagamentoCheckout[] {
+  const opcoes: PagamentoCheckout[] = [];
+  if (formas.includes("pix")) opcoes.push("pix");
+  if (formas.includes("cartao")) opcoes.push("cartao_credito", "cartao_debito");
+  if (formas.includes("dinheiro")) opcoes.push("dinheiro");
+  return opcoes;
+}
+
+function formaInicial(formas: string[]): PagamentoCheckout {
+  return opcoesPagamento(formas)[0] ?? "pix";
+}
+
+function formaParaApi(forma: PagamentoCheckout): FormaPagamento {
+  return forma === "cartao_credito" || forma === "cartao_debito" ? "cartao" : forma;
+}
+
+function urlWhatsApp(mensagem: string): string {
+  return `https://wa.me/${WHATSAPP_PEDIDOS}?text=${encodeURIComponent(mensagem)}`;
+}
 
 type Formulario = {
   nome: string;
@@ -48,14 +88,76 @@ type Formulario = {
   bairro: string;
   cidade: string;
   referencia: string;
-  formaPagamento: FormaPagamento;
+  formaPagamento: PagamentoCheckout;
   trocoPara: string;
   observacoes: string;
 };
 
-function formaInicial(formas: string[]): FormaPagamento {
-  const disponivel = formas[0];
-  return disponivel === "dinheiro" || disponivel === "cartao" ? disponivel : "pix";
+function montarMensagemPedido({
+  numero,
+  itens,
+  form,
+  resultado,
+}: {
+  numero: number;
+  itens: ItemCarrinho[];
+  form: Formulario;
+  resultado: ResultadoPedido;
+}): string {
+  const produtos = itens
+    .map((item) => {
+      const linha = `${item.quantidade}x ${item.nome} — ${moedaBRL(totalItem(item))}`;
+      const adicionais = item.adicionais.length
+        ? `\n   Adicionais: ${item.adicionais.map((a) => `${a.nome} (+${moedaBRL(a.preco)})`).join(", ")}`
+        : "";
+      const escolhas = item.comboEscolhas?.length ? `\n   Escolhas: ${item.comboEscolhas.join(", ")}` : "";
+      const observacao = item.observacao ? `\n   Observação: ${item.observacao}` : "";
+      return `${linha}${adicionais}${escolhas}${observacao}`;
+    })
+    .join("\n");
+
+  const endereco =
+    form.modalidade === "delivery"
+      ? [
+          `Endereço: ${form.endereco}`,
+          `Bairro: ${form.bairro}`,
+          `Número: ${form.numero}`,
+          `Cidade: ${form.cidade}`,
+          `Complemento: ${form.complemento || "-"}`,
+          `Referência: ${form.referencia || "-"}`,
+        ].join("\n")
+      : "Endereço: Retirada no estabelecimento";
+
+  const troco =
+    form.formaPagamento === "dinheiro" && form.trocoPara
+      ? ` (troco para ${moedaBRL(Number(form.trocoPara.replace(",", ".")))})`
+      : "";
+  const pagamento = `${PAGAMENTO_LABEL[form.formaPagamento]}${troco}`;
+  const notaPix = form.formaPagamento === "pix" ? "\n\nPagamento PIX: anexarei o comprovante nesta conversa." : "";
+  const observacoes = form.observacoes.trim() ? `\n\nObservações gerais:\n${form.observacoes.trim()}` : "";
+  const desconto = resultado.desconto > 0 ? `Desconto: - ${moedaBRL(resultado.desconto)}\n` : "";
+
+  return `NOVO PEDIDO
+Pedido: #${numero}
+
+Nome do cliente: ${form.nome}
+Telefone: ${form.telefone}
+
+${endereco}
+
+PRODUTOS:
+${produtos}${observacoes}
+
+Subtotal: ${moedaBRL(resultado.subtotal)}
+Taxa de entrega: ${moedaBRL(resultado.taxa_entrega)}
+${desconto}Total: ${moedaBRL(resultado.total)}
+
+Forma de pagamento: ${pagamento}
+Modalidade: ${form.modalidade === "delivery" ? "Entrega" : "Retirada"}${notaPix}`;
+}
+
+function montarMensagemComprovante(form: Formulario, resultado: ResultadoPedido): string {
+  return `Olá! Sou ${form.nome}. Envio o comprovante PIX do pedido #${resultado.numero} no valor de ${moedaBRL(resultado.total)}.`;
 }
 
 export function CartDrawer({
@@ -81,6 +183,8 @@ export function CartDrawer({
 }) {
   const [etapa, setEtapa] = useState<Etapa>("sacola");
   const [resultado, setResultado] = useState<ResultadoPedido | null>(null);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [whatsappComprovanteUrl, setWhatsappComprovanteUrl] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [cupomCodigo, setCupomCodigo] = useState("");
@@ -92,6 +196,7 @@ export function CartDrawer({
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [cepMensagem, setCepMensagem] = useState<string | null>(null);
   const ultimoCepRef = useRef("");
+  const enviandoRef = useRef(false);
   const [form, setForm] = useState<Formulario>(() => ({
     nome: "",
     telefone: "",
@@ -110,12 +215,11 @@ export function CartDrawer({
   }));
 
   useEffect(() => {
+    const opcoes = opcoesPagamento(config.formas_pagamento);
     setForm((atual) => ({
       ...atual,
       modalidade: config.aceita_delivery ? atual.modalidade : "retirada",
-      formaPagamento: config.formas_pagamento.includes(atual.formaPagamento)
-        ? atual.formaPagamento
-        : formaInicial(config.formas_pagamento),
+      formaPagamento: opcoes.includes(atual.formaPagamento) ? atual.formaPagamento : (opcoes[0] ?? "pix"),
       cidade: atual.cidade || config.cidade || "",
     }));
   }, [config.aceita_delivery, config.formas_pagamento, config.cidade]);
@@ -201,9 +305,7 @@ export function CartDrawer({
   const total = Math.max(0, Math.round((subtotal + taxa - desconto) * 100) / 100);
   const minimoOk = subtotal >= config.pedido_minimo;
   const podePedir = abertoLoja && config.aceitando_pedidos;
-  const formas = config.formas_pagamento.filter(
-    (forma): forma is FormaPagamento => forma === "pix" || forma === "dinheiro" || forma === "cartao",
-  );
+  const formas = opcoesPagamento(config.formas_pagamento);
 
   const set = <K extends keyof Formulario>(campo: K, valor: Formulario[K]) => {
     setForm((atual) => ({ ...atual, [campo]: valor }));
@@ -272,6 +374,19 @@ export function CartDrawer({
       return;
     }
 
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+    setWhatsappUrl(null);
+    setWhatsappComprovanteUrl(null);
+
+    let janelaWhatsApp: Window | null = null;
+    try {
+      janelaWhatsApp = window.open("about:blank", "_blank");
+      if (janelaWhatsApp) janelaWhatsApp.opener = null;
+    } catch {
+      janelaWhatsApp = null;
+    }
+
     setEnviando(true);
     try {
       const resposta = await fazerPedido({
@@ -294,11 +409,17 @@ export function CartDrawer({
               }
             : null,
         itens: paraPayload(itens),
-        formaPagamento: form.formaPagamento,
+        formaPagamento: formaParaApi(form.formaPagamento),
         trocoPara: troco,
         observacoes: form.observacoes,
         cupom: desconto > 0 && codigoAplicado ? codigoAplicado : undefined,
       });
+
+      const mensagem = montarMensagemPedido({ numero: resposta.numero, itens, form, resultado: resposta });
+      const url = urlWhatsApp(mensagem);
+      const comprovanteUrl = urlWhatsApp(montarMensagemComprovante(form, resposta));
+      setWhatsappUrl(url);
+      setWhatsappComprovanteUrl(comprovanteUrl);
       setResultado(resposta);
       salvarUltimoPedido({
         id: resposta.pedido_id,
@@ -314,16 +435,32 @@ export function CartDrawer({
       setCodigoAplicado(null);
       setEtapa("sucesso");
       toast.success("Pedido enviado com sucesso!");
+
+      try {
+        if (janelaWhatsApp && !janelaWhatsApp.closed) {
+          janelaWhatsApp.location.replace(url);
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      } catch {
+        toast.info("Use o botão de WhatsApp para enviar o pedido.");
+      }
     } catch (erroPedido) {
+      janelaWhatsApp?.close();
       setErro(erroPedido instanceof Error ? erroPedido.message : "Não foi possível enviar o pedido.");
     } finally {
+      enviandoRef.current = false;
       setEnviando(false);
     }
   };
 
   const fechar = () => {
     aoFechar();
-    if (etapa === "sucesso") setResultado(null);
+    if (etapa === "sucesso") {
+      setResultado(null);
+      setWhatsappUrl(null);
+      setWhatsappComprovanteUrl(null);
+    }
     setEtapa("sacola");
   };
 
@@ -358,6 +495,11 @@ export function CartDrawer({
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium">{item.nome}</p>
+                            {item.comboEscolhas?.length ? (
+                              <p className="mt-0.5 line-clamp-3 text-[11px] text-muted-foreground">
+                                Inclui: {item.comboEscolhas.join(" • ")}
+                              </p>
+                            ) : null}
                             {item.adicionais.length ? (
                               <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
                                 {item.adicionais.map((a) => a.nome).join(" • ")}
@@ -548,14 +690,20 @@ export function CartDrawer({
                     {[config.endereco, config.bairro, config.cidade].filter(Boolean).join(", ") || "Endereço informado no cardápio."}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">Tempo estimado: {config.tempo_retirada_min} min.</p>
+                  <p className="mt-2 text-xs font-medium text-gold">Você deverá buscar o pedido no estabelecimento.</p>
                 </div>
               )}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Select label="Forma de pagamento" obrigatorio value={form.formaPagamento} onChange={(e) => set("formaPagamento", e.target.value as FormaPagamento)}>
+                <Select
+                  label="Forma de pagamento"
+                  obrigatorio
+                  value={form.formaPagamento}
+                  onChange={(e) => set("formaPagamento", e.target.value as PagamentoCheckout)}
+                >
                   {formas.map((forma) => (
                     <option key={forma} value={forma}>
-                      {FORMA_PAGAMENTO_LABEL[forma]}
+                      {PAGAMENTO_LABEL[forma]}
                     </option>
                   ))}
                 </Select>
@@ -570,6 +718,15 @@ export function CartDrawer({
                   />
                 ) : null}
               </div>
+
+              {form.formaPagamento === "pix" ? (
+                <PixBox
+                  total={total}
+                  comprovanteUrl={urlWhatsApp(
+                    `Olá! Vou enviar o comprovante PIX do meu pedido no valor de ${moedaBRL(total)}.`,
+                  )}
+                />
+              ) : null}
 
               <Textarea
                 label="Observações do pedido"
@@ -635,14 +792,37 @@ export function CartDrawer({
             <p className="mt-2 max-w-sm text-sm text-muted-foreground">
               Obrigado! O estabelecimento já recebeu seu pedido. Acompanhe o preparo pelo link abaixo.
             </p>
+            {form.modalidade === "retirada" ? (
+              <p className="mt-2 max-w-sm text-xs font-medium text-gold">
+                Retirada no estabelecimento: aguarde o preparo antes de buscar.
+              </p>
+            ) : null}
             <p className="mt-4 text-lg font-semibold">{moedaBRL(resultado.total)}</p>
+            {whatsappUrl ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(buttonVariants({ variant: "primary", size: "lg" }), "mt-5 w-full uppercase tracking-[0.12em]")}
+              >
+                <MessageCircle className="h-4 w-4" /> Enviar pedido pelo WhatsApp
+              </a>
+            ) : null}
+            {form.formaPagamento === "pix" ? (
+              <PixBox
+                total={resultado.total}
+                numero={resultado.numero}
+                comprovanteUrl={whatsappComprovanteUrl}
+                className="mt-4 w-full max-w-md text-left"
+              />
+            ) : null}
             <Link
               to="/pedido"
               search={{ id: resultado.pedido_id, token: resultado.tracking_token }}
               onClick={fechar}
-              className="mt-6 w-full"
+              className="mt-4 w-full"
             >
-              <Button className="w-full" size="lg">
+              <Button className="w-full" variant="outline" size="lg">
                 Acompanhar pedido
               </Button>
             </Link>
@@ -653,6 +833,81 @@ export function CartDrawer({
         ) : null}
       </div>
     </Drawer>
+  );
+}
+
+function PixBox({
+  total,
+  numero,
+  comprovanteUrl,
+  className,
+}: {
+  total: number;
+  numero?: number;
+  comprovanteUrl?: string | null;
+  className?: string;
+}) {
+  const [copiado, setCopiado] = useState(false);
+
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(PIX_RECEBEDOR.chave);
+    } catch {
+      const campo = document.createElement("textarea");
+      campo.value = PIX_RECEBEDOR.chave;
+      campo.style.position = "fixed";
+      campo.style.opacity = "0";
+      document.body.appendChild(campo);
+      campo.select();
+      document.execCommand("copy");
+      campo.remove();
+    }
+    setCopiado(true);
+    toast.success("Chave PIX copiada.");
+    window.setTimeout(() => setCopiado(false), 2200);
+  };
+
+  return (
+    <div className={cn("rounded-2xl border border-gold/25 bg-gold/[0.06] p-4", className)}>
+      <div className="flex items-start gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-gold/15 text-gold">
+          <QrCode className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold">Pagamento via PIX</p>
+          <p className="mt-1 text-sm font-medium text-white">{PIX_RECEBEDOR.nome}</p>
+          <p className="mt-0.5 text-[11px] text-white/50">
+            Chave {PIX_RECEBEDOR.tipo}: <span className="font-semibold text-white">{PIX_RECEBEDOR.chave}</span>
+          </p>
+        </div>
+        <span className="shrink-0 text-sm font-semibold text-primary">{moedaBRL(total)}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void copiar()}
+          className="border-gold/30 text-gold hover:bg-gold/10"
+        >
+          <Copy className="h-3.5 w-3.5" /> {copiado ? "Chave copiada" : "Copiar chave"}
+        </Button>
+        {comprovanteUrl ? (
+          <a
+            href={comprovanteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "border-white/10 text-white/70 hover:bg-white/10")}
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> Enviar comprovante
+          </a>
+        ) : null}
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+        O pagamento será conferido pelo estabelecimento após o envio do comprovante. O status permanece pendente até a confirmação.
+      </p>
+      {numero ? <p className="mt-1 text-[11px] text-white/40">Pedido #{numero}.</p> : null}
+    </div>
   );
 }
 

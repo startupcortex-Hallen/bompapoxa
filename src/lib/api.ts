@@ -337,9 +337,24 @@ export async function excluirAdicional(id: string): Promise<void> {
   if (imagem) await removerImagens([imagem]);
 }
 
+export type ComboGrupoEntrada = {
+  nome: string;
+  min_qtd: number;
+  max_qtd: number;
+  obrigatorio: boolean;
+  ordem: number;
+  opcoes: {
+    produto_id: string;
+    quantidade: number;
+    rotulo?: string | null;
+    ordem: number;
+  }[];
+};
+
 export async function salvarCombo(
   dados: Partial<Combo> & { nome: string; preco: number },
   itens: { produto_id: string; quantidade: number }[],
+  grupos: ComboGrupoEntrada[] = [],
 ): Promise<string> {
   let imagemAnterior: string | null = null;
   if (dados.id) {
@@ -363,11 +378,49 @@ export async function salvarCombo(
       ativo: dados.ativo ?? true,
     },
     p_itens: itens,
-  });
-  if (error) falhar(error);
-  if (imagemAnterior && imagemAnterior !== (dados.imagem_url ?? null)) await removerImagens([imagemAnterior]);
-  return String(data);
-}
+    });
+    if (error) falhar(error);
+    const comboId = String(data);
+
+    const { error: limparGruposError } = await supabase
+      .from("cardapio_exemplo_combo_grupos")
+      .delete()
+      .eq("combo_id", comboId);
+    if (limparGruposError) falhar(limparGruposError);
+
+    for (const grupo of grupos) {
+      const { data: grupoCriado, error: grupoError } = await supabase
+        .from("cardapio_exemplo_combo_grupos")
+        .insert({
+          combo_id: comboId,
+          nome: grupo.nome.trim(),
+          min_qtd: grupo.min_qtd,
+          max_qtd: grupo.max_qtd,
+          obrigatorio: grupo.obrigatorio,
+          ordem: grupo.ordem,
+        })
+        .select("id")
+        .single();
+      if (grupoError) falhar(grupoError);
+      if (!grupoCriado) throw new Error("Não foi possível criar o grupo do combo.");
+
+      const opcoes = grupo.opcoes.filter((opcao) => Boolean(opcao.produto_id));
+      if (!opcoes.length) continue;
+      const { error: opcoesError } = await supabase.from("cardapio_exemplo_combo_opcoes").insert(
+        opcoes.map((opcao, indice) => ({
+          grupo_id: String(grupoCriado.id),
+          produto_id: opcao.produto_id,
+          quantidade: opcao.quantidade,
+          rotulo: opcao.rotulo?.trim() || null,
+          ordem: opcao.ordem ?? indice,
+        })),
+      );
+      if (opcoesError) falhar(opcoesError);
+    }
+
+    if (imagemAnterior && imagemAnterior !== (dados.imagem_url ?? null)) await removerImagens([imagemAnterior]);
+    return comboId;
+  }
 
 export async function excluirCombo(id: string): Promise<void> {
   const { data: anterior } = await supabase

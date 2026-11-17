@@ -27,7 +27,8 @@ Para reaplicar em outro projeto ou recuperar o ambiente:
 
 1. Abra o projeto no Supabase.
 2. Vá em **SQL Editor**.
-3. Execute `supabase/migrations/202611170001_bompapoxa.sql`, `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql` e `supabase/migrations/202611170003_bompapoxa_tipografia_cinema.sql`.
+3. Execute `supabase/migrations/202611170001_bompapoxa.sql`, `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql`, `supabase/migrations/202611170003_bompapoxa_tipografia_cinema.sql` e `supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql`.
+4. Para o catálogo real, execute [`seed-cardapio-real.sql`](seed-cardapio-real.sql). O `seed-demo.sql` é apenas o conjunto antigo de demonstração.
 5. Confira em **Table Editor** as tabelas `cardapio_exemplo_*`.
 6. Confira em **Storage** o bucket `cardapio-exemplo-imagens`.
 7. Confira em **Database > Policies** as políticas prefixadas.
@@ -58,19 +59,20 @@ o próprio papel para `admin`. A função de promoção é executável apenas po
 Para remover o acesso, use o SQL Editor (com credencial administrativa) para atualizar o papel
 para `cliente` ou excluir o perfil.
 
-## Dados de demonstração
+## Cardápio real publicado
 
-O ambiente publicado usa o arquivo [`seed-demo.sql`](seed-demo.sql) para criar um cardápio
-demonstrativo de hamburgueria:
+O ambiente publicado usa o arquivo [`seed-cardapio-real.sql`](seed-cardapio-real.sql):
 
-- 12 produtos com imagem principal + 2 imagens de detalhe cada, distribuídos em 5 categorias, 8 adicionais, 2 combos, banner, cupom `DEMO10` e horários provisórios.
-- Fotografias reais de alimentos com licenças livres para uso comercial, sem marcas d'água, textos ou logos. Créditos no [`README`](../README.md#créditos-das-imagens).
-- Logo mantida no fallback tipográfico até o envio da arte oficial.
-- Configuração de status forçada para "aberto" para a demonstração.
+- 9 produtos reais: 4 hambúrgueres artesanais, 2 kebabs, batata frita 170g, refrigerante e suco de laranja 300ml.
+- 4 categorias ativas e 4 combos; 3 publicados e o Combo Frangolino oculto até o preço ser definido no painel.
+- Combos configuráveis com 6 grupos e 13 opções de escolha: principal e bebida obrigatórios, quantidades de batata identificadas no produto/descrição e nenhum adicional fictício.
+- Solteiro R$ 40, Casal R$ 75, Enrolado R$ 35 e Frangolino sem preço público.
+- Kebab Kafta, Kebab Tavuk, Combo Enrolado e Combo Frangolino usam placeholders ilustrativos; troque as fotos no painel administrativo.
 
-Para remover o conjunto e cadastrar os dados reais, execute [`cleanup-demo.sql`](cleanup-demo.sql)
-e depois apague as imagens demonstrativas das pastas `produtos/`, `combos/` e `banners/` no bucket
-`cardapio-exemplo-imagens`. A limpeza não remove o administrador.
+O [`seed-demo.sql`](seed-demo.sql) é o conjunto antigo de demonstração e não deve ser executado
+sobre o cardápio real. O [`cleanup-demo.sql`](cleanup-demo.sql) remove os IDs do catálogo demo e
+também não deve ser executado enquanto o cardápio real estiver ativo. A limpeza não remove o
+administrador.
 
 ## Configuração de autenticação
 
@@ -165,6 +167,6 @@ Validação live no projeto Supabase real:
 - Trocar a senha do administrador inicial em **Minha conta > Segurança**.
 - Alterar o e-mail do administrador inicial em **Authentication > Users** no Supabase.
 - Configurar as URLs de autenticação.
-- Substituir o conjunto de demonstração por logo, capa, fotos, produtos, adicionais, combos, banners, cupons e horários reais. Use `cleanup-demo.sql` e remova as imagens demonstrativas das pastas `produtos/`, `combos/` e `banners/` do Storage.
+- O catálogo real já está aplicado. Use o painel para trocar as imagens ilustrativas dos kebabs e dos combos Enrolado/Frangolino pelas fotos oficiais. Não execute `cleanup-demo.sql` com o cardápio real ativo.
 - Se desejar tempo real, habilitar a publicação Realtime das tabelas `cardapio_exemplo_pedidos` e `cardapio_exemplo_historico_pedidos` no painel; o frontend usa polling a cada 15 segundos por padrão.
 - Revogar ou rotacionar o Personal Access Token usado no provisionamento, pois ele foi compartilhado na conversa e não foi gravado no repositório.

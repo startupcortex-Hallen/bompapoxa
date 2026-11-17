@@ -6,6 +6,7 @@ export type ItemCarrinho = {
   key: string;
   produtoId?: string;
   comboId?: string;
+  comboEscolhas?: string[];
   nome: string;
   precoBase: number;
   adicionais: AdicionalCarrinho[];
@@ -22,8 +23,20 @@ export type PayloadItemPedido = {
   observacao?: string;
 };
 
-function chave(produtoId: string | undefined, comboId: string | undefined, adicionais: string[], observacao: string) {
-  return [produtoId ?? "", comboId ?? "", [...adicionais].sort().join("+"), observacao.trim().toLowerCase()].join("|");
+function chave(
+  produtoId: string | undefined,
+  comboId: string | undefined,
+  comboEscolhas: string[] | undefined,
+  adicionais: string[],
+  observacao: string,
+) {
+  return [
+    produtoId ?? "",
+    comboId ?? "",
+    [...(comboEscolhas ?? [])].sort().join("+"),
+    [...adicionais].sort().join("+"),
+    observacao.trim().toLowerCase(),
+  ].join("|");
 }
 
 export function precoUnitario(item: Pick<ItemCarrinho, "precoBase" | "adicionais">): number {
@@ -43,7 +56,7 @@ export function contarItens(itens: ItemCarrinho[]): number {
 }
 
 export function adicionarItem(itens: ItemCarrinho[], novo: Omit<ItemCarrinho, "key">): ItemCarrinho[] {
-  const chaveNova = chave(novo.produtoId, novo.comboId, novo.adicionais.map((a) => a.id), novo.observacao);
+  const chaveNova = chave(novo.produtoId, novo.comboId, novo.comboEscolhas, novo.adicionais.map((a) => a.id), novo.observacao);
   const existente = itens.find((item) => item.key === chaveNova);
   if (existente) {
     return itens.map((item) =>
@@ -63,11 +76,15 @@ export function removerItem(itens: ItemCarrinho[], key: string): ItemCarrinho[] 
 }
 
 export function paraPayload(itens: ItemCarrinho[]): PayloadItemPedido[] {
-  return itens.map((item) => ({
-    ...(item.produtoId ? { produto_id: item.produtoId } : {}),
-    ...(item.comboId ? { combo_id: item.comboId } : {}),
-    quantidade: item.quantidade,
-    adicionais: item.adicionais.map((a) => a.id),
-    ...(item.observacao.trim() ? { observacao: item.observacao.trim() } : {}),
-  }));
+  return itens.map((item) => {
+    const resumo = item.comboEscolhas?.length ? `Inclui: ${item.comboEscolhas.join(", ")}` : "";
+    const observacao = [resumo, item.observacao.trim()].filter(Boolean).join(" | ");
+    return {
+      ...(item.produtoId ? { produto_id: item.produtoId } : {}),
+      ...(item.comboId ? { combo_id: item.comboId } : {}),
+      quantidade: item.quantidade,
+      adicionais: item.adicionais.map((a) => a.id),
+      ...(observacao ? { observacao: observacao.slice(0, 200) } : {}),
+    };
+  });
 }

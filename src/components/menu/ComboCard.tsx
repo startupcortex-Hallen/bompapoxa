@@ -53,7 +53,8 @@ export function ComboCard({
         </button>
 
         <div className="mt-3 flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/35">
-          <Package className="h-3 w-3 text-gold" /> {combo.itens.length} itens no combo
+          <Package className="h-3 w-3 text-gold" />
+          {combo.grupos.length ? "Combo configurável" : `${combo.itens.length} itens no combo`}
         </div>
 
         <div className="mt-auto flex items-end justify-between gap-3 pt-4">
@@ -65,12 +66,12 @@ export function ComboCard({
               if (aoAdicionar) aoAdicionar(combo);
               else aoAbrir(combo);
             }}
-            aria-label={`Adicionar ${combo.nome} à sacola`}
+            aria-label={combo.grupos.length ? `Montar ${combo.nome}` : `Adicionar ${combo.nome} à sacola`}
             disabled={!combo.disponivel}
             className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white shadow-[0_12px_30px_-14px_rgba(229,9,20,0.9)] transition hover:brightness-110 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40"
           >
             <Plus className="h-3.5 w-3.5" />
-            Adicionar
+            {combo.grupos.length ? "Montar" : "Adicionar"}
           </button>
         </div>
       </div>

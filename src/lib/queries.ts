@@ -8,7 +8,9 @@ import {
   mapBanner,
   mapCategoria,
   mapCombo,
+  mapComboGrupo,
   mapComboItem,
+  mapComboOpcao,
   mapConfig,
   mapCupom,
   mapHistorico,
@@ -88,30 +90,53 @@ export async function carregarHorarios(): Promise<Horario[]> {
 
 export async function carregarCardapioPublico(): Promise<CardapioPublico> {
   const configuracoes = await carregarConfiguracoes();
-  const [categorias, produtos, adicionais, combos, comboItens, banners, horarios, avaliacoes, respostaAberto] =
-    await Promise.all([
-      supabase.from("cardapio_exemplo_categorias").select("*").eq("ativo", true).order("ordem"),
-      supabase
-        .from("cardapio_exemplo_produtos")
-        .select("*")
-        .eq("ativo", true)
-        .order("ordem")
-        .order("created_at"),
-      supabase.from("cardapio_exemplo_adicionais").select("*").eq("disponivel", true).order("ordem"),
-      supabase.from("cardapio_exemplo_combos").select("*").eq("ativo", true).order("ordem"),
-      supabase.from("cardapio_exemplo_combo_itens").select("*"),
-      supabase.from("cardapio_exemplo_banners").select("*").eq("ativo", true).order("ordem"),
-      carregarHorarios(),
-      supabase
-        .from("cardapio_exemplo_avaliacoes")
-        .select("*")
-        .eq("aprovado", true)
-        .order("created_at", { ascending: false })
-        .limit(12),
-      supabase.rpc("cardapio_exemplo_esta_aberto"),
-    ]);
+  const [
+    categorias,
+    produtos,
+    adicionais,
+    combos,
+    comboItens,
+    comboGrupos,
+    comboOpcoes,
+    banners,
+    horarios,
+    avaliacoes,
+    respostaAberto,
+  ] = await Promise.all([
+    supabase.from("cardapio_exemplo_categorias").select("*").eq("ativo", true).order("ordem"),
+    supabase
+      .from("cardapio_exemplo_produtos")
+      .select("*")
+      .eq("ativo", true)
+      .order("ordem")
+      .order("created_at"),
+    supabase.from("cardapio_exemplo_adicionais").select("*").eq("disponivel", true).order("ordem"),
+    supabase.from("cardapio_exemplo_combos").select("*").eq("ativo", true).order("ordem"),
+    supabase.from("cardapio_exemplo_combo_itens").select("*"),
+    supabase.from("cardapio_exemplo_combo_grupos").select("*").order("ordem"),
+    supabase.from("cardapio_exemplo_combo_opcoes").select("*").order("ordem"),
+    supabase.from("cardapio_exemplo_banners").select("*").eq("ativo", true).order("ordem"),
+    carregarHorarios(),
+    supabase
+      .from("cardapio_exemplo_avaliacoes")
+      .select("*")
+      .eq("aprovado", true)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabase.rpc("cardapio_exemplo_esta_aberto"),
+  ]);
 
-  for (const resposta of [categorias, produtos, adicionais, combos, comboItens, banners, avaliacoes]) {
+  for (const resposta of [
+    categorias,
+    produtos,
+    adicionais,
+    combos,
+    comboItens,
+    comboGrupos,
+    comboOpcoes,
+    banners,
+    avaliacoes,
+  ]) {
     if (resposta.error) throw resposta.error;
   }
 
@@ -119,21 +144,48 @@ export async function carregarCardapioPublico(): Promise<CardapioPublico> {
   const itensPorCombo = agruparPor(rows(comboItens.data).map(mapComboItem), (item) => item.combo_id);
   const listaProdutos = rows(produtos.data).map((row) => mapProduto(row, adicionaisPorProduto.get(String(row.id)) ?? []));
   const nomesProdutos = new Map(listaProdutos.map((produto) => [produto.id, produto.nome]));
-
   const produtosPorId = new Map(listaProdutos.map((produto) => [produto.id, produto]));
+
+  const opcoesPorGrupo = agruparPor(rows(comboOpcoes.data).map(mapComboOpcao), (opcao) => opcao.grupo_id);
+  const gruposPorCombo = agruparPor(
+    rows(comboGrupos.data).map((row) =>
+      mapComboGrupo(
+        row,
+        (opcoesPorGrupo.get(String(row.id)) ?? []).map((opcao) => {
+          const produto = produtosPorId.get(opcao.produto_id);
+          return {
+            ...opcao,
+            produto_nome: nomesProdutos.get(opcao.produto_id) ?? "Item do combo",
+            produto_disponivel: Boolean(produto?.disponivel && produto.ativo),
+          };
+        }),
+      ),
+    ),
+    (grupo) => grupo.combo_id,
+  );
+
   const listaCombos = rows(combos.data).map((row) => {
     const itens = (itensPorCombo.get(String(row.id)) ?? []).map((item) => ({
       ...item,
       produto_nome: nomesProdutos.get(item.produto_id) ?? "Item do combo",
     }));
-    const combo = mapCombo(row, itens);
+    const grupos = gruposPorCombo.get(String(row.id)) ?? [];
+    const combo = mapCombo(row, itens, grupos);
     const itensDisponiveis =
       itens.length > 0 &&
       itens.every((item) => {
         const produto = produtosPorId.get(item.produto_id);
         return Boolean(produto?.disponivel && produto.ativo);
       });
-    return { ...combo, disponivel: combo.disponivel && itensDisponiveis };
+    const gruposDisponiveis = grupos.every((grupo) => {
+      const minimo = grupo.obrigatorio ? Math.max(grupo.min_qtd, 1) : grupo.min_qtd;
+      const disponiveis = grupo.opcoes.filter((opcao) => {
+        const produto = produtosPorId.get(opcao.produto_id);
+        return Boolean(produto?.disponivel && produto.ativo);
+      });
+      return disponiveis.length >= minimo;
+    });
+    return { ...combo, disponivel: combo.disponivel && itensDisponiveis && gruposDisponiveis };
   });
 
   const listaHorarios = horarios;
@@ -214,23 +266,41 @@ export async function carregarAdminAdicionais(): Promise<{ produtos: Produto[]; 
 }
 
 export async function carregarAdminCombos(): Promise<{ combos: Combo[]; produtos: Produto[] }> {
-  const [combos, itens, produtos] = await Promise.all([
+  const [combos, itens, grupos, opcoes, produtos] = await Promise.all([
     supabase.from("cardapio_exemplo_combos").select("*").order("ordem"),
     supabase.from("cardapio_exemplo_combo_itens").select("*"),
+    supabase.from("cardapio_exemplo_combo_grupos").select("*").order("ordem"),
+    supabase.from("cardapio_exemplo_combo_opcoes").select("*").order("ordem"),
     supabase.from("cardapio_exemplo_produtos").select("*").order("nome"),
   ]);
   if (combos.error) throw combos.error;
   if (itens.error) throw itens.error;
+  if (grupos.error) throw grupos.error;
+  if (opcoes.error) throw opcoes.error;
   if (produtos.error) throw produtos.error;
   const nomes = new Map(rows(produtos.data).map((p) => [String(p.id), String(p.nome ?? "")]));
   const porCombo = agruparPor(rows(itens.data).map(mapComboItem), (item) => item.combo_id);
+  const opcoesPorGrupo = agruparPor(rows(opcoes.data).map(mapComboOpcao), (opcao) => opcao.grupo_id);
+  const gruposPorCombo = agruparPor(
+    rows(grupos.data).map((row) =>
+      mapComboGrupo(
+        row,
+        (opcoesPorGrupo.get(String(row.id)) ?? []).map((opcao) => ({
+          ...opcao,
+          produto_nome: nomes.get(opcao.produto_id) ?? "Produto",
+        })),
+      ),
+    ),
+    (grupo) => grupo.combo_id,
+  );
   return {
     combos: rows(combos.data).map((row) => {
       const lista = (porCombo.get(String(row.id)) ?? []).map((item) => ({
         ...item,
         produto_nome: nomes.get(item.produto_id) ?? "Produto",
       }));
-      return mapCombo(row, lista);
+      const listaGrupos = gruposPorCombo.get(String(row.id)) ?? [];
+      return mapCombo(row, lista, listaGrupos);
     }),
     produtos: rows(produtos.data).map((row) => mapProduto(row, [])),
   };

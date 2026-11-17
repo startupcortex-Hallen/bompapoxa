@@ -1,3 +1,4 @@
+-- ATENÇÃO: NÃO EXECUTE COM O CARDÁPIO REAL ATIVO; ESTE SCRIPT REMOVE OS IDS d000.../f000....
 -- REMOVE OS DADOS DE DEMONSTRAÇÃO DO BOM PA POXA
 -- Execute no SQL Editor do Supabase ou pela Management API.
 -- As imagens de demonstração ficam no bucket cardapio-exemplo-imagens;

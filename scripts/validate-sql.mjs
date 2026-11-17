@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 
 const migration = fs.readFileSync("supabase/migrations/202611170001_bompapoxa.sql", "utf8");
+const migrationCombos = fs.readFileSync("supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql", "utf8");
 const db = new PGlite();
 
 const stubs = `
@@ -48,6 +49,7 @@ alter table storage.objects enable row level security;
 
 await db.exec(stubs);
 await db.exec(migration);
+await db.exec(migrationCombos);
 
 const adminId = "11111111-1111-4111-8111-111111111111";
 const clientId = "22222222-2222-4222-8222-222222222222";
@@ -59,7 +61,7 @@ const tables = await db.query(`
   from information_schema.tables
   where table_schema = 'public' and table_name like 'cardapio_exemplo_%'
 `);
-assert.equal(tables.rows.length, 14, "devem existir 14 tabelas prefixadas");
+assert.equal(tables.rows.length, 16, "devem existir 16 tabelas prefixadas");
 
 const settings = await db.query("select nome_estabelecimento, status_abertura from public.cardapio_exemplo_configuracoes");
 assert.equal(settings.rows[0].nome_estabelecimento, "BOM PA POXA");

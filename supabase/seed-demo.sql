@@ -1,3 +1,4 @@
+-- ATENÇÃO: ESTE ARQUIVO É O CONJUNTO ANTIGO DE DEMONSTRAÇÃO. NÃO EXECUTE SOBRE O CARDÁPIO REAL (use seed-cardapio-real.sql).
 -- DADOS DE DEMONSTRAÇÃO DO BOM PA POXA
 -- Cardápio demonstrativo de hamburgueria: produtos, preços e textos ilustrativos.
 -- Remova com supabase/cleanup-demo.sql antes de cadastrar o cardápio real.

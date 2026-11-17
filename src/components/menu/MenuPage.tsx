@@ -153,6 +153,10 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
 
   const adicionarComboRapido = (item: Combo) => {
     if (bloqueado || !item.disponivel) return;
+    if (item.grupos.length) {
+      setCombo(item);
+      return;
+    }
     carrinho.adicionar({
       comboId: item.id,
       nome: item.nome,

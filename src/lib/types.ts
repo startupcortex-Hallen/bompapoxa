@@ -109,6 +109,28 @@ export type ComboItem = {
   produto_nome?: string;
 };
 
+export type ComboOpcao = {
+  id: string;
+  grupo_id: string;
+  produto_id: string;
+  produto_nome?: string;
+  produto_disponivel?: boolean;
+  quantidade: number;
+  rotulo: string | null;
+  ordem: number;
+};
+
+export type ComboGrupo = {
+  id: string;
+  combo_id: string;
+  nome: string;
+  min_qtd: number;
+  max_qtd: number;
+  obrigatorio: boolean;
+  ordem: number;
+  opcoes: ComboOpcao[];
+};
+
 export type Combo = {
   id: string;
   nome: string;
@@ -122,6 +144,7 @@ export type Combo = {
   created_at: string;
   updated_at: string;
   itens: ComboItem[];
+  grupos: ComboGrupo[];
 };
 
 export type Banner = {
