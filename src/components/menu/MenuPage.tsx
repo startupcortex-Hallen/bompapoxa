@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -10,6 +10,7 @@ import {
   Clock,
   CreditCard,
   Flame,
+  Play,
   RefreshCw,
   Search,
   ShoppingBag,
@@ -44,7 +45,9 @@ const HERO_VIDEO_DESKTOP = `${BASE}videos/hero-cinema-720.mp4`;
 const HERO_VIDEO_MOBILE = `${BASE}videos/hero-cinema-360.mp4`;
 const HERO_POSTER = `${BASE}videos/hero-poster.jpg`;
 
-export function MenuPage() {
+export type DetalheRota = { tipo: "produto" | "combo"; id: string };
+
+export function MenuPage({ detalhe }: { detalhe?: DetalheRota } = {}) {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery(cardapioQuery);
   useTitulo(data?.configuracoes.nome_estabelecimento, data?.configuracoes.descricao ?? undefined);
 
@@ -57,12 +60,23 @@ export function MenuPage() {
       />
     );
   }
-  return <Conteudo data={data} atualizar={() => void refetch()} atualizando={isFetching} />;
+  return <Conteudo data={data} detalhe={detalhe} atualizar={() => void refetch()} atualizando={isFetching} />;
 }
 
-function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atualizar: () => void; atualizando: boolean }) {
+function Conteudo({
+  data,
+  detalhe,
+  atualizar,
+  atualizando,
+}: {
+  data: CardapioPublico;
+  detalhe?: DetalheRota;
+  atualizar: () => void;
+  atualizando: boolean;
+}) {
   const { configuracoes: config, categorias, produtos, combos, banners, horarios, avaliacoes, aberto } = data;
   const carrinho = useCarrinho();
+  const navigate = useNavigate();
   const [produto, setProduto] = useState<Produto | null>(null);
   const [combo, setCombo] = useState<Combo | null>(null);
   const [sacolaAberta, setSacolaAberta] = useState(false);
@@ -123,6 +137,29 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
     quantidadeAnterior.current = carrinho.quantidade;
   }, [carrinho.quantidade]);
 
+  useEffect(() => {
+    if (!detalhe) return;
+    if (detalhe.tipo === "produto") {
+      const item = produtos.find((produto) => produto.id === detalhe.id);
+      if (item) setProduto(item);
+      else void navigate({ to: "/" });
+      return;
+    }
+    const item = combos.find((combo) => combo.id === detalhe.id);
+    if (item) setCombo(item);
+    else void navigate({ to: "/" });
+  }, [detalhe, produtos, combos, navigate]);
+
+  const abrirProduto = (item: Produto) => {
+    void navigate({ to: "/produto/$produtoId", params: { produtoId: item.id } });
+  };
+
+  const abrirCombo = (item: Combo) => {
+    void navigate({ to: "/combo/$comboId", params: { comboId: item.id } });
+  };
+
+  const sugestoes = useMemo(() => produtos.filter((produto) => produto.disponivel && produto.ativo), [produtos]);
+
   const irPara = (id: string) => {
     setBusca("");
     setAtivo(id);
@@ -136,7 +173,7 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
     if (bloqueado || !item.disponivel) return;
     const exigeEscolha = item.adicionais.some((a) => a.obrigatorio || a.min_qtd > 0);
     if (exigeEscolha) {
-      setProduto(item);
+      abrirProduto(item);
       return;
     }
     carrinho.adicionar({
@@ -154,13 +191,33 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
   const adicionarComboRapido = (item: Combo) => {
     if (bloqueado || !item.disponivel) return;
     if (item.grupos.length) {
-      setCombo(item);
+      abrirCombo(item);
       return;
     }
     carrinho.adicionar({
       comboId: item.id,
       nome: item.nome,
       precoBase: item.preco,
+      adicionais: [],
+      quantidade: 1,
+      observacao: "",
+      imagemUrl: item.imagem_url,
+    });
+    toast.success(`${item.nome} adicionado à sacola.`);
+  };
+
+  const adicionarSugestao = (item: Produto) => {
+    if (bloqueado || !item.disponivel) return;
+    const exigeEscolha = item.adicionais.some((a) => a.obrigatorio || a.min_qtd > 0);
+    if (exigeEscolha) {
+      setSacolaAberta(false);
+      abrirProduto(item);
+      return;
+    }
+    carrinho.adicionar({
+      produtoId: item.id,
+      nome: item.nome,
+      precoBase: precoVigente(item),
       adicionais: [],
       quantidade: 1,
       observacao: "",
@@ -282,7 +339,7 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
                   <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {resultados.map((item, indice) => (
                       <Reveal key={item.id} delay={indice * 50} className="h-full">
-                        <ProdutoCard produto={item} aoAbrir={setProduto} aoAdicionar={adicionarRapido} />
+                        <ProdutoCard produto={item} aoAbrir={abrirProduto} aoAdicionar={adicionarRapido} />
                       </Reveal>
                     ))}
                   </div>
@@ -293,7 +350,7 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
                     <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                       {resultadosCombos.map((item, indice) => (
                         <Reveal key={item.id} delay={indice * 50} className="h-full">
-                          <ComboCard combo={item} aoAbrir={setCombo} aoAdicionar={adicionarComboRapido} />
+                          <ComboCard combo={item} aoAbrir={abrirCombo} aoAdicionar={adicionarComboRapido} />
                         </Reveal>
                       ))}
                     </div>
@@ -366,7 +423,7 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
                         delay={indice * 60}
                         className="w-[82vw] max-w-[330px] shrink-0 snap-start sm:w-[300px] lg:w-[340px]"
                       >
-                        <ProdutoCard produto={item} aoAbrir={setProduto} aoAdicionar={adicionarRapido} />
+                        <ProdutoCard produto={item} aoAbrir={abrirProduto} aoAdicionar={adicionarRapido} />
                       </Reveal>
                     ))}
                   </CollectionRow>
@@ -380,7 +437,7 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
                         delay={indice * 60}
                         className="w-[84vw] max-w-[360px] shrink-0 snap-start sm:w-[340px] lg:w-[380px]"
                       >
-                        <ComboCard combo={item} aoAbrir={setCombo} aoAdicionar={adicionarComboRapido} />
+                        <ComboCard combo={item} aoAbrir={abrirCombo} aoAdicionar={adicionarComboRapido} />
                       </Reveal>
                     ))}
                   </CollectionRow>
@@ -391,7 +448,7 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
                     key={categoria.id}
                     categoria={categoria}
                     produtos={produtos.filter((p) => p.categoria_id === categoria.id)}
-                    aoAbrir={setProduto}
+                    aoAbrir={abrirProduto}
                     aoAdicionar={adicionarRapido}
                   />
                 ))}
@@ -441,7 +498,10 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
       <ProdutoModal
         produto={produto}
         aberto={Boolean(produto)}
-        aoFechar={() => setProduto(null)}
+        aoFechar={() => {
+          setProduto(null);
+          if (detalhe) void navigate({ to: "/" });
+        }}
         aoAdicionar={(dados) => {
           carrinho.adicionar({ ...dados, observacao: dados.observacao });
         }}
@@ -452,7 +512,10 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
       <ComboModal
         combo={combo}
         aberto={Boolean(combo)}
-        aoFechar={() => setCombo(null)}
+        aoFechar={() => {
+          setCombo(null);
+          if (detalhe) void navigate({ to: "/" });
+        }}
         aoAdicionar={(dados) => {
           carrinho.adicionar({ ...dados, adicionais: [], observacao: dados.observacao });
         }}
@@ -468,6 +531,9 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
         remover={carrinho.remover}
         limpar={carrinho.limpar}
         abertoLoja={aberto}
+        sugestoes={sugestoes}
+        aoAdicionarSugestao={adicionarSugestao}
+        aoAbrirSugestao={abrirProduto}
       />
     </PublicLayout>
   );
@@ -485,23 +551,60 @@ function Hero({
   const imagem = config.banner_url ?? banner?.imagem_url ?? HERO_POSTER;
   const semMovimento = usePrefersReducedMotion();
   const [videoFalhou, setVideoFalhou] = useState(false);
+  const [videoPausado, setVideoPausado] = useState(true);
+  const [motionForcado, setMotionForcado] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (semMovimento) return;
     const video = videoRef.current;
     if (!video) return;
-    const tentar = () => {
-      void video.play().catch(() => undefined);
+    const aoTocar = () => setVideoPausado(false);
+    const aoPausar = () => setVideoPausado(true);
+    video.addEventListener("play", aoTocar);
+    video.addEventListener("pause", aoPausar);
+    const verificarEstado = () => setVideoPausado(video.paused);
+    const intervalo = window.setInterval(verificarEstado, 700);
+
+    let removerEventos: () => void = () => undefined;
+    if (!semMovimento) {
+      const tentar = () => {
+        void video.play().catch(() => setVideoPausado(true));
+      };
+      tentar();
+      const eventos = ["pointerdown", "touchstart", "keydown", "scroll"] as const;
+      eventos.forEach((evento) => window.addEventListener(evento, tentar, { once: true, passive: true }));
+      removerEventos = () => eventos.forEach((evento) => window.removeEventListener(evento, tentar));
+    }
+
+    return () => {
+      window.clearInterval(intervalo);
+      video.removeEventListener("play", aoTocar);
+      video.removeEventListener("pause", aoPausar);
+      removerEventos();
     };
-    tentar();
-    const eventos = ["pointerdown", "touchstart", "keydown", "scroll"] as const;
-    eventos.forEach((evento) => window.addEventListener(evento, tentar, { once: true, passive: true }));
-    return () => eventos.forEach((evento) => window.removeEventListener(evento, tentar));
   }, [semMovimento]);
 
+  const ativarMovimento = () => {
+    setMotionForcado(true);
+    const video = videoRef.current;
+    if (!video) return;
+    void video
+      .play()
+      .then(() => setVideoPausado(false))
+      .catch(() => {
+        setVideoPausado(true);
+        toast.info("O navegador bloqueou o vídeo. Verifique o Modo de Baixa Energia.");
+      });
+  };
+
   return (
-    <section id="inicio" className="relative isolate min-h-[100svh] overflow-hidden bg-[#090909]">
+    <section
+      id="inicio"
+      className={cn(
+        "relative isolate min-h-[100svh] overflow-hidden bg-[#090909]",
+        motionForcado && "hero-motion-forced",
+      )}
+    >
       <div className="absolute inset-0">
         <img
           src={imagem}
@@ -510,26 +613,24 @@ function Hero({
           loading="eager"
           fetchPriority="high"
         />
-        {!semMovimento ? (
-          <video
-            ref={videoRef}
-            className={cn(
-              "hero-media absolute inset-0 h-full w-full object-cover transition-opacity duration-1000",
-              videoFalhou && "hidden",
-            )}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            poster={imagem}
-            aria-hidden
-            onError={() => setVideoFalhou(true)}
-          >
-            <source src={HERO_VIDEO_DESKTOP} media="(min-width: 768px)" type="video/mp4" />
-            <source src={HERO_VIDEO_MOBILE} type="video/mp4" />
-          </video>
-        ) : null}
+        <video
+          ref={videoRef}
+          className={cn(
+            "hero-media absolute inset-0 h-full w-full object-cover transition-opacity duration-1000",
+            videoFalhou && "hidden",
+          )}
+          autoPlay={!semMovimento}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster={imagem}
+          aria-hidden
+          onError={() => setVideoFalhou(true)}
+        >
+          <source src={HERO_VIDEO_DESKTOP} media="(min-width: 768px)" type="video/mp4" />
+          <source src={HERO_VIDEO_MOBILE} type="video/mp4" />
+        </video>
       </div>
 
       <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/40 to-black/10" />
@@ -583,6 +684,17 @@ function Hero({
               <Clock className="h-3.5 w-3.5 text-gold" /> {resumoFuncionamento(horarios)}
             </span>
           </div>
+          {(semMovimento && !motionForcado) || videoPausado ? (
+            <button
+              type="button"
+              onClick={ativarMovimento}
+              aria-label={motionForcado ? "Reproduzir vídeo do hero" : "Ativar movimento do hero"}
+              className="mt-6 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-black/35 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold backdrop-blur transition hover:border-gold/60 hover:bg-black/50"
+            >
+              <Play className="h-3.5 w-3.5" />
+              {motionForcado ? "Reproduzir vídeo" : "Ativar movimento"}
+            </button>
+          ) : null}
         </div>
       </div>
 

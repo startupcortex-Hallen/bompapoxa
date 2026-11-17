@@ -16,6 +16,8 @@ import { Route as PedidoRouteImport } from './routes/pedido'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
+import { Route as ComboComboIdRouteImport } from './routes/combo.$comboId'
+import { Route as ProdutoProdutoIdRouteImport } from './routes/produto.$produtoId'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminAdicionaisRouteImport } from './routes/_authenticated/admin/adicionais'
 import { Route as AuthenticatedAdminAvaliacoesRouteImport } from './routes/_authenticated/admin/avaliacoes'
@@ -62,6 +64,16 @@ const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
   id: '/admin',
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ComboComboIdRoute = ComboComboIdRouteImport.update({
+  id: '/combo/$comboId',
+  path: '/combo/$comboId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProdutoProdutoIdRoute = ProdutoProdutoIdRouteImport.update({
+  id: '/produto/$produtoId',
+  path: '/produto/$produtoId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
@@ -140,6 +152,8 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
+  '/combo/$comboId': typeof ComboComboIdRoute
+  '/produto/$produtoId': typeof ProdutoProdutoIdRoute
   '/admin/adicionais': typeof AuthenticatedAdminAdicionaisRoute
   '/admin/avaliacoes': typeof AuthenticatedAdminAvaliacoesRoute
   '/admin/banners': typeof AuthenticatedAdminBannersRoute
@@ -159,6 +173,8 @@ export interface FileRoutesByTo {
   '/pedido': typeof PedidoRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/combo/$comboId': typeof ComboComboIdRoute
+  '/produto/$produtoId': typeof ProdutoProdutoIdRoute
   '/admin/adicionais': typeof AuthenticatedAdminAdicionaisRoute
   '/admin/avaliacoes': typeof AuthenticatedAdminAvaliacoesRoute
   '/admin/banners': typeof AuthenticatedAdminBannersRoute
@@ -181,6 +197,8 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
+  '/combo/$comboId': typeof ComboComboIdRoute
+  '/produto/$produtoId': typeof ProdutoProdutoIdRoute
   '/_authenticated/admin/adicionais': typeof AuthenticatedAdminAdicionaisRoute
   '/_authenticated/admin/avaliacoes': typeof AuthenticatedAdminAvaliacoesRoute
   '/_authenticated/admin/banners': typeof AuthenticatedAdminBannersRoute
@@ -203,6 +221,8 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/admin'
+    | '/combo/$comboId'
+    | '/produto/$produtoId'
     | '/admin/adicionais'
     | '/admin/avaliacoes'
     | '/admin/banners'
@@ -222,6 +242,8 @@ export interface FileRouteTypes {
     | '/pedido'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/combo/$comboId'
+    | '/produto/$produtoId'
     | '/admin/adicionais'
     | '/admin/avaliacoes'
     | '/admin/banners'
@@ -243,6 +265,8 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/_authenticated/admin'
+    | '/combo/$comboId'
+    | '/produto/$produtoId'
     | '/_authenticated/admin/adicionais'
     | '/_authenticated/admin/avaliacoes'
     | '/_authenticated/admin/banners'
@@ -264,6 +288,8 @@ export interface RootRouteChildren {
   PedidoRoute: typeof PedidoRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  ComboComboIdRoute: typeof ComboComboIdRoute
+  ProdutoProdutoIdRoute: typeof ProdutoProdutoIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -316,6 +342,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin'
       preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/combo/$comboId': {
+      id: '/combo/$comboId'
+      path: '/combo/$comboId'
+      fullPath: '/combo/$comboId'
+      preLoaderRoute: typeof ComboComboIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/produto/$produtoId': {
+      id: '/produto/$produtoId'
+      path: '/produto/$produtoId'
+      fullPath: '/produto/$produtoId'
+      preLoaderRoute: typeof ProdutoProdutoIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -458,6 +498,8 @@ const rootRouteChildren: RootRouteChildren = {
   PedidoRoute: PedidoRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  ComboComboIdRoute: ComboComboIdRoute,
+  ProdutoProdutoIdRoute: ProdutoProdutoIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

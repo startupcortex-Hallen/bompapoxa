@@ -8,6 +8,7 @@ import {
   MessageCircle,
   MessageSquare,
   LoaderCircle,
+  Plus,
   QrCode,
   ShoppingBag,
   Store,
@@ -30,11 +31,11 @@ import {
   type EnderecoGeocodificado,
 } from "@/lib/geocoding";
 import { MODALIDADE_LABEL } from "@/lib/order-status";
-import type { FormaPagamento, Modalidade, ResultadoPedido } from "@/lib/types";
-import type { Configuracoes } from "@/lib/types";
+import type { Configuracoes, FormaPagamento, Modalidade, Produto, ResultadoPedido } from "@/lib/types";
 import { paraPayload, type ItemCarrinho } from "@/lib/cart";
 import { salvarUltimoPedido } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
+import { ImagemProduto, precoVigente } from "./common";
 import { MapaEndereco } from "./MapaEndereco";
 
 type Etapa = "sacola" | "dados" | "sucesso";
@@ -170,6 +171,9 @@ export function CartDrawer({
   remover,
   limpar,
   abertoLoja,
+  sugestoes,
+  aoAdicionarSugestao,
+  aoAbrirSugestao,
 }: {
   aberto: boolean;
   aoFechar: () => void;
@@ -180,6 +184,9 @@ export function CartDrawer({
   remover: (key: string) => void;
   limpar: () => void;
   abertoLoja: boolean;
+  sugestoes: Produto[];
+  aoAdicionarSugestao: (produto: Produto) => void;
+  aoAbrirSugestao: (produto: Produto) => void;
 }) {
   const [etapa, setEtapa] = useState<Etapa>("sacola");
   const [resultado, setResultado] = useState<ResultadoPedido | null>(null);
@@ -534,6 +541,47 @@ export function CartDrawer({
                     </div>
                   ))}
 
+                  {sugestoes.length ? (
+                    <div className="pt-1">
+                      <div className="flex items-end justify-between gap-2">
+                        <p className="text-sm font-semibold">Adicione mais</p>
+                        <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Lanches e bebidas</span>
+                      </div>
+                      <div className="hide-scrollbar -mx-1 mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+                        {sugestoes.map((produto) => (
+                          <div key={produto.id} className="w-36 shrink-0 overflow-hidden rounded-xl border border-border bg-card">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                aoFechar();
+                                aoAbrirSugestao(produto);
+                              }}
+                              className="block w-full text-left"
+                              aria-label={`Ver ${produto.nome}`}
+                            >
+                              <div className="aspect-[4/3] overflow-hidden bg-secondary">
+                                <ImagemProduto url={produto.imagem_url} nome={produto.nome} />
+                              </div>
+                              <p className="line-clamp-2 px-2 pt-1.5 text-[11px] font-medium leading-tight">{produto.nome}</p>
+                            </button>
+                            <div className="flex items-center justify-between gap-1 px-2 pb-2 pt-1">
+                              <span className="text-xs font-semibold text-primary">{moedaBRL(precoVigente(produto))}</span>
+                              <button
+                                type="button"
+                                onClick={() => aoAdicionarSugestao(produto)}
+                                disabled={!produto.disponivel}
+                                aria-label={`Adicionar ${produto.nome}`}
+                                className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition active:scale-95 disabled:opacity-40"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="rounded-xl border border-border bg-secondary/30 p-3.5">
                     <p className="flex items-center gap-2 text-sm font-medium">
                       <Ticket className="h-4 w-4" /> Cupom de desconto
@@ -809,12 +857,21 @@ export function CartDrawer({
               </a>
             ) : null}
             {form.formaPagamento === "pix" ? (
-              <PixBox
-                total={resultado.total}
-                numero={resultado.numero}
-                comprovanteUrl={whatsappComprovanteUrl}
-                className="mt-4 w-full max-w-md text-left"
-              />
+              <>
+                <div className="mt-4 w-full max-w-md rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-left text-xs text-white/65">
+                  <p className="font-semibold text-gold">PIX: falta enviar o comprovante.</p>
+                  <p className="mt-1">
+                    Faça o PIX com a chave abaixo e envie o comprovante para a loja pelo WhatsApp.
+                    O pedido está registrado e o pagamento será confirmado pelo estabelecimento.
+                  </p>
+                </div>
+                <PixBox
+                  total={resultado.total}
+                  numero={resultado.numero}
+                  comprovanteUrl={whatsappComprovanteUrl}
+                  className="mt-3 w-full max-w-md text-left"
+                />
+              </>
             ) : null}
             <Link
               to="/pedido"
@@ -903,8 +960,13 @@ function PixBox({
           </a>
         ) : null}
       </div>
+      <div className="mt-3 space-y-1 text-[11px] leading-relaxed text-white/55">
+        <p><span className="font-semibold text-gold">1.</span> Faça o PIX usando a chave acima.</p>
+        <p><span className="font-semibold text-gold">2.</span> {numero ? "Pedido confirmado." : "Confirme o pedido."}</p>
+        <p><span className="font-semibold text-gold">3.</span> Envie o comprovante para a loja pelo WhatsApp.</p>
+      </div>
       <p className="mt-2 text-[11px] leading-relaxed text-white/40">
-        O pagamento será conferido pelo estabelecimento após o envio do comprovante. O status permanece pendente até a confirmação.
+        O pagamento permanece pendente até a loja confirmar o comprovante.
       </p>
       {numero ? <p className="mt-1 text-[11px] text-white/40">Pedido #{numero}.</p> : null}
     </div>

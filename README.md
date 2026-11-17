@@ -73,6 +73,10 @@ O cardápio público foi reestruturado como uma experiência cinematográfica in
 
 - Página inicial com identidade da casa, status de funcionamento, entrega, retirada, pedido mínimo e formas de pagamento.
 - Categorias, produtos, preços, preços promocionais, ingredientes, fotos opcionais, galeria, destaques e combos.
+- Cards de produtos e combos com rotas próprias de detalhe (`/produto/:id` e `/combo/:id`).
+- Sacola com sugestões de lanches e bebidas para adicionar sem voltar ao cardápio.
+- Botão "Ativar movimento" no hero para iPhone/Modo de Baixa Energia ou usuários com Reduzir Movimento.
+- PIX manual com aviso de pagamento pendente, cópia da chave e envio de comprovante pelo WhatsApp.
 - Busca por nome, descrição e ingredientes.
 - Modal de produto com adicionais por grupo, limites mínimo/máximo, quantidade e observações.
 - Sacola persistente no navegador, cupom de desconto e checkout para entrega ou retirada.
