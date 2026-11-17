@@ -64,7 +64,7 @@ para `cliente` ou excluir o perfil.
 O ambiente publicado usa o arquivo [`seed-demo.sql`](seed-demo.sql) para criar um cardápio
 ilustrativo:
 
-- 10 produtos, 6 adicionais, 2 combos, banner, cupom `DEMO10` e horários provisórios.
+- 10 produtos com imagem principal + 2 imagens de detalhe cada, 8 adicionais, 2 combos, banner, cupom `DEMO10` e horários provisórios.
 - Imagens com o selo "IMAGEM ILUSTRATIVA • DEMONSTRAÇÃO", sem fotos reais de produtos.
 - Logo mantida no fallback tipográfico até o envio da arte oficial.
 - Configuração de status forçada para "aberto" e textos indicando demonstração.

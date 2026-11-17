@@ -27,7 +27,7 @@ os dados reais não chegam.
 
 O ambiente publicado contém:
 
-- 10 produtos ilustrativos, 6 adicionais, 2 combos, banner de demonstração, cupom `DEMO10` e horários provisórios.
+- 10 produtos ilustrativos com imagem principal + 2 imagens de detalhe cada, 8 adicionais, 2 combos, banner de demonstração, cupom `DEMO10` e horários provisórios.
 - Imagens ilustrativas geradas com o selo "IMAGEM ILUSTRATIVA • DEMONSTRAÇÃO"; não são fotos reais dos produtos.
 - Logo mantida no fallback tipográfico "BOM PA POXA" até o envio da arte oficial.
 - Preços, descrições, contatos e endereço são provisórios. O endereço permanece vazio.
@@ -60,7 +60,7 @@ autenticação.
 
 - Visão geral com pedidos do dia, faturamento, pedidos em andamento, produtos disponíveis/indisponíveis, categorias, avaliações pendentes e últimos pedidos.
 - CRUD de categorias, produtos, adicionais, combos, banners e cupons.
-- Gestão de pedidos com atualização de status, confirmação de pagamento e histórico.
+- Gestão de pedidos com atualização de status, confirmação de pagamento, histórico e exclusão administrativa.
 - Moderação de avaliações.
 - Configurações de identidade, contato, endereço, entrega, retirada, taxas, pagamentos, status da loja, cores, tipografia e horários.
 - Upload de imagens para o Supabase Storage com compressão local em WebP.
@@ -223,8 +223,12 @@ o `index.html` e as URLs absolutas do README.
 - CRUD real de produto com upload de imagem no Storage, exibição no cardápio público sem novo deploy e exclusão com limpeza do objeto.
 - Pedido real anônimo via RPC: produto, cupom, cálculo de subtotal/desconto/total, criação, consulta por token e rejeição de token incorreto.
 - Os dados dos testes de pedido, categoria e produto foram removidos; o conjunto de demonstração permanece intencionalmente.
-- Seed de demonstração aplicado: 10 produtos, 6 adicionais, 2 combos, banner, cupom e horários.
-- Página pública live validada com 15 imagens ilustrativas carregadas, modal de produto, adicional, sacola e layout mobile sem overflow.
+- Seed de demonstração aplicado: 10 produtos com 3 imagens cada, 8 adicionais, 2 combos, banner, cupom e horários.
+- Página pública live validada com 15 imagens ilustrativas carregadas, modal de produto, carrossel, adicional, sacola e layout mobile sem overflow.
+- Sacola mobile validada com altura dinâmica, rolagem da lista, botão "Continuar" sempre visível e controle de quantidade compacto.
+- CRUD live de adicionais, combos, banners e cupons: criação e exclusão.
+- Fluxo real de pedido com mudança de status, envio de avaliação, aprovação, exclusão da avaliação e exclusão do pedido.
+- Configurações e horários salvos pela interface real do painel.
 - Cards, modais, sacola, checkout, acompanhamento, login, painel, 404 e layout mobile também foram validados em Chrome headless com Supabase simulado.
 - Fluxo publicado sem erros de console após a ativação do banco.
 - GitHub Actions concluído com sucesso em typecheck, lint, testes, validação SQL, build e deploy.
