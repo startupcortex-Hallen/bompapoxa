@@ -52,6 +52,8 @@ autenticação.
 - Busca por nome, descrição e ingredientes.
 - Modal de produto com adicionais por grupo, limites mínimo/máximo, quantidade e observações.
 - Sacola persistente no navegador, cupom de desconto e checkout para entrega ou retirada.
+- Checkout com CEP automático (ViaCEP), busca de endereço, localização atual e mapa (OpenStreetMap/Photon), com as coordenadas gravadas no pedido.
+- O administrador vê a localização do pedido e pode abrir o ponto exato no mapa.
 - Pedido validado no PostgreSQL: preços, disponibilidade, adicionais, cupom, taxa de entrega, pedido mínimo e horário de funcionamento são recalculados no servidor.
 - Página de acompanhamento do pedido com linha do tempo, detalhes e avaliação após entrega/retirada.
 - Avaliações moderadas pelo estabelecimento.
@@ -76,6 +78,7 @@ autenticação.
 - TanStack Query
 - Supabase JS (Auth, PostgREST, Storage)
 - Lucide Icons, Sonner, Framer Motion
+- Leaflet + OpenStreetMap, Photon e ViaCEP para endereço no checkout
 - QR Code Styling
 - Vitest
 
@@ -99,7 +102,7 @@ src/
   lib/               tipos, consultas, mutações, formato, horários, tema e utilidades
   routes/            rotas TanStack Router
 supabase/
-  migrations/        migration única do BOM PA POXA
+  migrations/        migrations versionadas do BOM PA POXA
   README.md          passo a passo do banco, RLS, storage e administrador
 ```
 
@@ -154,7 +157,9 @@ o build do GitHub Pages.
 - URL: `https://tbckigurtfwpgnuhrapr.supabase.co`
 - Prefixo obrigatório de todos os objetos do cardápio: `cardapio_exemplo_`
 - Bucket: `cardapio-exemplo-imagens`
-- Migration: `supabase/migrations/202611170001_bompapoxa.sql`
+- Migrations:
+  - `supabase/migrations/202611170001_bompapoxa.sql` — schema principal, RLS, RPCs, Storage e seed inicial.
+  - `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql` — coordenadas de entrega e evolução das RPCs de pedido.
 
 A migration não altera nem remove objetos de outros aplicativos do mesmo projeto. Ela cria
 tabelas, tipos, funções, triggers, índices, políticas RLS, bucket e dados iniciais mínimos com

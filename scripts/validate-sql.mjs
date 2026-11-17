@@ -122,6 +122,8 @@ const endereco = JSON.stringify({
   numero: "10",
   bairro: "Centro",
   cidade: "Salvador",
+  latitude: -12.9777,
+  longitude: -38.5016,
 });
 
 const pedido = await db.query(
@@ -143,6 +145,8 @@ const payload = typeof consulta.rows[0].cardapio_exemplo_get_pedido === "string"
 assert.equal(payload.status, "novo");
 assert.equal(payload.itens.length, 1);
 assert.equal(payload.historico.length, 1);
+assert.equal(Number(payload.endereco.latitude), -12.9777);
+assert.equal(Number(payload.endereco.longitude), -38.5016);
 
 await db.exec(`update public.cardapio_exemplo_pedidos set status = 'em_preparo' where id = '${criado.pedido_id}'`);
 const consulta2 = await db.query("select * from public.cardapio_exemplo_get_pedido($1, $2)", [criado.pedido_id, criado.tracking_token]);

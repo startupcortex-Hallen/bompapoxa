@@ -199,6 +199,8 @@ export type EnderecoPedido = {
   bairro: string | null;
   cidade: string | null;
   referencia: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type Pedido = {
@@ -215,6 +217,8 @@ export type Pedido = {
   bairro: string | null;
   cidade: string | null;
   referencia: string | null;
+  latitude: number | null;
+  longitude: number | null;
   forma_pagamento: FormaPagamento;
   troco_para: number | null;
   status: StatusPedido;

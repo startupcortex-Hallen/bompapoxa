@@ -18,6 +18,7 @@ import { AdminPageHeader } from "@/components/admin/ui";
 import { StatusPagamentoBadge, StatusPedidoBadge } from "@/components/admin/status";
 import { Badge, EstadoVazio, Skeleton } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
 import { adminPedidosQuery, chaves } from "@/lib/queries";
 import { atualizarPagamentoPedido, atualizarStatusPedido, excluirPedido } from "@/lib/api";
@@ -49,6 +50,7 @@ function PedidosPage() {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery(adminPedidosQuery);
   const [filtro, setFiltro] = useState<Filtro>("andamento");
   const [busca, setBusca] = useState("");
+  const [apenasPendentes, setApenasPendentes] = useState(false);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
 
   const invalidar = async () => {
@@ -66,10 +68,11 @@ function PedidosPage() {
       if (filtro === "novos" && pedido.status !== "novo") return false;
       if (filtro === "finalizados" && !["entregue", "retirado"].includes(pedido.status)) return false;
       if (filtro === "cancelados" && pedido.status !== "cancelado") return false;
+      if (apenasPendentes && pedido.status_pagamento !== "pendente") return false;
       if (!termo) return true;
       return [String(pedido.numero), pedido.cliente_nome, pedido.cliente_telefone].join(" ").toLowerCase().includes(termo);
     });
-  }, [data, filtro, busca]);
+  }, [data, filtro, busca, apenasPendentes]);
 
   const contagem = useMemo(() => {
     const todos = data ?? [];
@@ -143,6 +146,9 @@ function PedidosPage() {
         <button type="button" onClick={() => void refetch()} className="h-10 rounded-full border border-border bg-card px-4 text-xs text-muted-foreground hover:bg-secondary">
           Atualizar agora
         </button>
+        <div className="flex h-10 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs text-muted-foreground">
+          <Checkbox checked={apenasPendentes} onChange={setApenasPendentes} label="Só pagamento pendente" />
+        </div>
       </div>
 
       <div className="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
@@ -271,12 +277,24 @@ function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago, aoExcluir }: { ped
             {pedido.modalidade === "delivery" ? "Endereço de entrega" : "Retirada no local"}
           </p>
           {pedido.modalidade === "delivery" ? (
-            <p className="mt-1 text-sm">
-              {[pedido.endereco, pedido.numero_endereco, pedido.complemento].filter(Boolean).join(", ")}
-              <br />
-              {[pedido.bairro, pedido.cidade, pedido.cep].filter(Boolean).join(" • ")}
-              {pedido.referencia ? <><br />Ref.: {pedido.referencia}</> : null}
-            </p>
+            <div className="mt-1 text-sm">
+              <p>
+                {[pedido.endereco, pedido.numero_endereco, pedido.complemento].filter(Boolean).join(", ")}
+                <br />
+                {[pedido.bairro, pedido.cidade, pedido.cep].filter(Boolean).join(" • ")}
+                {pedido.referencia ? <><br />Ref.: {pedido.referencia}</> : null}
+              </p>
+              {pedido.latitude != null && pedido.longitude != null ? (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${pedido.latitude},${pedido.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline decoration-current/30 underline-offset-4 hover:decoration-current"
+                >
+                  <MapPin className="h-3.5 w-3.5" /> Abrir localização no mapa
+                </a>
+              ) : null}
+            </div>
           ) : (
             <p className="mt-1 text-sm text-muted-foreground">Cliente retira no estabelecimento.</p>
           )}

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckCircle2,
   MapPin,
   MessageSquare,
+  LoaderCircle,
   ShoppingBag,
   Store,
   Ticket,
@@ -18,12 +19,20 @@ import { Input, Select, Textarea } from "@/components/ui/form";
 import { EstadoVazio } from "@/components/ui/feedback";
 import { fazerPedido, validarCupom } from "@/lib/api";
 import { formatarTelefone, moedaBRL, somenteDigitos } from "@/lib/format";
+import {
+  buscarCep,
+  buscarCoordenadasEndereco,
+  formatarCep,
+  type Coordenadas,
+  type EnderecoGeocodificado,
+} from "@/lib/geocoding";
 import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL } from "@/lib/order-status";
 import type { FormaPagamento, Modalidade, ResultadoPedido } from "@/lib/types";
 import type { Configuracoes } from "@/lib/types";
 import { paraPayload, type ItemCarrinho } from "@/lib/cart";
 import { salvarUltimoPedido } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
+import { MapaEndereco } from "./MapaEndereco";
 
 type Etapa = "sacola" | "dados" | "sucesso";
 
@@ -79,6 +88,10 @@ export function CartDrawer({
   const [desconto, setDesconto] = useState(0);
   const [subtotalCupom, setSubtotalCupom] = useState<number | null>(null);
   const [codigoAplicado, setCodigoAplicado] = useState<string | null>(null);
+  const [coordenadas, setCoordenadas] = useState<Coordenadas | null>(null);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [cepMensagem, setCepMensagem] = useState<string | null>(null);
+  const ultimoCepRef = useRef("");
   const [form, setForm] = useState<Formulario>(() => ({
     nome: "",
     telefone: "",
@@ -115,6 +128,69 @@ export function CartDrawer({
       setCodigoAplicado(null);
     }
   }, [subtotal, subtotalCupom, cupomMensagem]);
+
+  useEffect(() => {
+    if (form.modalidade !== "delivery") {
+      setBuscandoCep(false);
+      setCepMensagem(null);
+      return;
+    }
+    const digitos = somenteDigitos(form.cep);
+    if (digitos.length !== 8 || digitos === ultimoCepRef.current) {
+      setBuscandoCep(false);
+      return;
+    }
+
+    let cancelado = false;
+    setBuscandoCep(true);
+    setCepMensagem(null);
+    const timer = window.setTimeout(async () => {
+      try {
+        const cep = await buscarCep(digitos);
+        if (cancelado) return;
+        if (!cep) {
+          setCepMensagem("CEP não encontrado. Confira o número ou preencha manualmente.");
+          return;
+        }
+        ultimoCepRef.current = digitos;
+        setForm((atual) => ({
+          ...atual,
+          endereco: cep.endereco || atual.endereco,
+          bairro: cep.bairro || atual.bairro,
+          cidade: cep.cidade || atual.cidade,
+        }));
+        setCepMensagem("Endereço preenchido pelo CEP. Confira o número e ajuste o pino no mapa.");
+        const coordenadasCep = await buscarCoordenadasEndereco(
+          [cep.endereco, cep.bairro, cep.cidade, cep.estado].filter(Boolean).join(", "),
+        );
+        if (!cancelado && coordenadasCep) setCoordenadas(coordenadasCep);
+      } catch {
+        if (!cancelado) setCepMensagem("Não foi possível consultar o CEP agora. Preencha manualmente.");
+      } finally {
+        if (!cancelado) setBuscandoCep(false);
+      }
+    }, 450);
+
+    return () => {
+      cancelado = true;
+      window.clearTimeout(timer);
+    };
+  }, [form.cep, form.modalidade]);
+
+  const aplicarEnderecoDoMapa = (ponto: Coordenadas, endereco?: EnderecoGeocodificado) => {
+    setCoordenadas(ponto);
+    if (!endereco) return;
+    setForm((atual) => ({
+      ...atual,
+      cep: endereco.cep ? formatarCep(endereco.cep) : atual.cep,
+      endereco: endereco.endereco || atual.endereco,
+      numero: endereco.numero || atual.numero,
+      bairro: endereco.bairro || atual.bairro,
+      cidade: endereco.cidade || atual.cidade,
+    }));
+    if (endereco.cep) ultimoCepRef.current = somenteDigitos(endereco.cep);
+    if (endereco.rotulo) setCepMensagem(`Local selecionado: ${endereco.rotulo}`);
+  };
 
   const taxa = useMemo(() => {
     if (form.modalidade !== "delivery") return 0;
@@ -205,7 +281,7 @@ export function CartDrawer({
         modalidade: form.modalidade,
         endereco:
           form.modalidade === "delivery"
-            ? {
+              ? {
                 cep: form.cep || null,
                 endereco: form.endereco,
                 numero: form.numero,
@@ -213,6 +289,8 @@ export function CartDrawer({
                 bairro: form.bairro,
                 cidade: form.cidade,
                 referencia: form.referencia || null,
+                latitude: coordenadas?.latitude ?? null,
+                longitude: coordenadas?.longitude ?? null,
               }
             : null,
         itens: paraPayload(itens),
@@ -435,7 +513,14 @@ export function CartDrawer({
                     <MapPin className="h-4 w-4" /> Endereço de entrega
                   </p>
                   <div className="grid gap-4 sm:grid-cols-[1fr_2fr]">
-                    <Input label="CEP" value={form.cep} onChange={(e) => set("cep", e.target.value)} inputMode="numeric" autoComplete="postal-code" />
+                    <Input
+                      label="CEP"
+                      value={form.cep}
+                      onChange={(event) => set("cep", formatarCep(event.target.value))}
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      placeholder="00000-000"
+                    />
                     <Input label="Rua / avenida" obrigatorio value={form.endereco} onChange={(e) => set("endereco", e.target.value)} autoComplete="address-line1" />
                   </div>
                   <div className="grid gap-4 sm:grid-cols-3">
@@ -447,6 +532,14 @@ export function CartDrawer({
                     <Input label="Complemento" value={form.complemento} onChange={(e) => set("complemento", e.target.value)} placeholder="Apto, bloco…" />
                   </div>
                   <Input label="Ponto de referência" value={form.referencia} onChange={(e) => set("referencia", e.target.value)} />
+                  {buscandoCep ? (
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Buscando CEP…
+                    </p>
+                  ) : cepMensagem ? (
+                    <p className="text-xs text-muted-foreground">{cepMensagem}</p>
+                  ) : null}
+                  <MapaEndereco coordenadas={coordenadas} aoMudar={aplicarEnderecoDoMapa} />
                 </div>
               ) : (
                 <div className="rounded-xl border border-border bg-secondary/30 p-3.5 text-sm">

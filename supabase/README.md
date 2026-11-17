@@ -19,16 +19,16 @@ adequado.
 
 ## Migration
 
-A migration já foi aplicada no projeto `tbckigurtfwpgnuhrapr` via Management API. Foram
-verificados 14 tabelas `cardapio_exemplo_*`, as funções, os triggers, as políticas e o bucket
-`cardapio-exemplo-imagens`.
+As migrations já foram aplicadas no projeto `tbckigurtfwpgnuhrapr` via Management API. Foram
+verificados 14 tabelas `cardapio_exemplo_*`, as funções, os triggers, as políticas, o bucket
+`cardapio-exemplo-imagens` e as colunas de coordenadas em `cardapio_exemplo_pedidos`.
 
 Para reaplicar em outro projeto ou recuperar o ambiente:
 
 1. Abra o projeto no Supabase.
 2. Vá em **SQL Editor**.
-3. Abra `supabase/migrations/202611170001_bompapoxa.sql`.
-4. Copie todo o conteúdo, cole no SQL Editor e execute.
+3. Execute `supabase/migrations/202611170001_bompapoxa.sql` e, em seguida,
+   `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql`.
 5. Confira em **Table Editor** as tabelas `cardapio_exemplo_*`.
 6. Confira em **Storage** o bucket `cardapio-exemplo-imagens`.
 7. Confira em **Database > Policies** as políticas prefixadas.
@@ -102,7 +102,7 @@ exige login.
 | `cardapio_exemplo_combo_itens` | Produtos e quantidades de cada combo |
 | `cardapio_exemplo_banners` | Banners e capas |
 | `cardapio_exemplo_cupons` | Cupons percentuais ou de valor fixo |
-| `cardapio_exemplo_pedidos` | Pedidos, cliente, endereço, valores e status |
+| `cardapio_exemplo_pedidos` | Pedidos, cliente, endereço, coordenadas, valores e status |
 | `cardapio_exemplo_itens_pedido` | Itens do pedido com preço e adicionais congelados |
 | `cardapio_exemplo_historico_pedidos` | Histórico de status |
 | `cardapio_exemplo_avaliacoes` | Avaliações com moderação |
@@ -111,7 +111,7 @@ exige login.
 
 | Função | Acesso | Finalidade |
 | --- | --- | --- |
-| `cardapio_exemplo_place_order` | anon/authenticated | Cria pedido com preços e disponibilidade validados no banco |
+| `cardapio_exemplo_place_order` | anon/authenticated | Cria pedido com preços e disponibilidade validados no banco; aceita latitude/longitude no JSON de endereço |
 | `cardapio_exemplo_get_pedido` | anon/authenticated | Consulta pedido somente com id + token privado |
 | `cardapio_exemplo_validar_cupom` | anon/authenticated | Valida cupom e calcula desconto |
 | `cardapio_exemplo_submit_avaliacao` | anon/authenticated | Envia avaliação vinculada ao token do pedido |

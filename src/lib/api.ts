@@ -46,6 +46,12 @@ function primeiro<T>(data: unknown): T | null {
   return null;
 }
 
+function coordenadaOuNulo(valor: unknown): number | null {
+  if (valor === null || valor === undefined || valor === "") return null;
+  const numeroCoordenada = Number(valor);
+  return Number.isFinite(numeroCoordenada) ? numeroCoordenada : null;
+}
+
 function mapRastreio(valor: unknown): StatusPedidoRastreio | null {
   if (!valor || typeof valor !== "object") return null;
   const row = valor as Row;
@@ -95,6 +101,8 @@ function mapRastreio(valor: unknown): StatusPedidoRastreio | null {
     bairro: (endereco.bairro as string | null) ?? null,
     cidade: (endereco.cidade as string | null) ?? null,
     referencia: (endereco.referencia as string | null) ?? null,
+    latitude: coordenadaOuNulo(endereco.latitude),
+    longitude: coordenadaOuNulo(endereco.longitude),
     forma_pagamento: (row.forma_pagamento as Pedido["forma_pagamento"]) ?? "pix",
     troco_para: row.troco_para == null ? null : numero(row.troco_para),
     status: (row.status as StatusPedido) ?? "novo",

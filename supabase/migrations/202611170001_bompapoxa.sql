@@ -210,6 +210,8 @@ create table if not exists public.cardapio_exemplo_pedidos (
   bairro text,
   cidade text,
   referencia text,
+  latitude numeric(10,7) check (latitude is null or latitude between -90 and 90),
+  longitude numeric(10,7) check (longitude is null or longitude between -180 and 180),
   forma_pagamento public.cardapio_exemplo_forma_pagamento not null,
   troco_para numeric(10,2) check (troco_para is null or troco_para >= 0),
   status public.cardapio_exemplo_status_pedido not null default 'novo',
@@ -566,6 +568,8 @@ declare
   v_bairro text;
   v_cidade text;
   v_referencia text;
+  v_latitude numeric;
+  v_longitude numeric;
   v_digitos text;
   v_obs text;
   v_cupom_codigo text;
@@ -607,17 +611,25 @@ begin
   v_bairro := nullif(trim(p_endereco->>'bairro'), '');
   v_cidade := nullif(trim(p_endereco->>'cidade'), '');
   v_referencia := nullif(trim(p_endereco->>'referencia'), '');
+  v_latitude := nullif(trim(p_endereco->>'latitude'), '')::numeric;
+  v_longitude := nullif(trim(p_endereco->>'longitude'), '')::numeric;
+  if v_latitude is not null and (v_latitude < -90 or v_latitude > 90) then
+    raise exception 'Latitude inválida.';
+  end if;
+  if v_longitude is not null and (v_longitude < -180 or v_longitude > 180) then
+    raise exception 'Longitude inválida.';
+  end if;
   v_obs := nullif(trim(p_observacoes), '');
   if v_obs is not null and char_length(v_obs) > 1000 then raise exception 'As observações são longas demais.'; end if;
 
   insert into public.cardapio_exemplo_pedidos (
     cliente_nome, cliente_telefone, cliente_email, modalidade,
     cep, endereco, numero_endereco, complemento, bairro, cidade, referencia,
-    forma_pagamento, observacoes
+    latitude, longitude, forma_pagamento, observacoes
   ) values (
     trim(p_cliente_nome), trim(p_cliente_telefone), nullif(trim(p_cliente_email), ''), p_modalidade,
     v_cep, v_endereco, v_numero_endereco, v_complemento, v_bairro, v_cidade, v_referencia,
-    p_forma_pagamento, v_obs
+    v_latitude, v_longitude, p_forma_pagamento, v_obs
   )
   returning cardapio_exemplo_pedidos.id, cardapio_exemplo_pedidos.numero, cardapio_exemplo_pedidos.tracking_token
   into v_pedido_id, v_numero, v_token;
@@ -804,7 +816,8 @@ as $$
     'modalidade', o.modalidade,
     'endereco', jsonb_strip_nulls(jsonb_build_object(
       'cep', o.cep, 'endereco', o.endereco, 'numero', o.numero_endereco,
-      'complemento', o.complemento, 'bairro', o.bairro, 'cidade', o.cidade, 'referencia', o.referencia
+      'complemento', o.complemento, 'bairro', o.bairro, 'cidade', o.cidade, 'referencia', o.referencia,
+      'latitude', o.latitude, 'longitude', o.longitude
     )),
     'forma_pagamento', o.forma_pagamento,
     'troco_para', o.troco_para,

@@ -94,9 +94,10 @@ function DashboardPage() {
         <StatCard rotulo="Faturamento 30 dias" valor={moedaBRL(data.faturamento30Dias)} detalhe="Últimos 30 dias" icone={<CalendarClock className="h-4 w-4" />} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <StatCard rotulo="Produtos" valor={String(data.totalProdutos)} detalhe={`${data.produtosDisponiveis} disponíveis`} icone={<UtensilsCrossed className="h-4 w-4" />} />
         <StatCard rotulo="Indisponíveis" valor={String(data.produtosIndisponiveis)} detalhe="Esgotados ou ocultos" icone={<AlertCircle className="h-4 w-4" />} />
+        <StatCard rotulo="Pagamentos pendentes" valor={String(data.pagamentosPendentes)} detalhe={`${moedaBRL(data.valorPendente)} a receber`} icone={<CircleDollarSign className="h-4 w-4" />} destaque={data.pagamentosPendentes > 0} />
         <StatCard rotulo="Avaliações pendentes" valor={String(data.avaliacoesPendentes)} detalhe="Aguardando moderação" icone={<Star className="h-4 w-4" />} />
         <StatCard rotulo="Cupons ativos" valor={String(data.cuponsAtivos)} detalhe={`${data.totalCategorias} categorias`} icone={<TicketPercent className="h-4 w-4" />} />
       </div>

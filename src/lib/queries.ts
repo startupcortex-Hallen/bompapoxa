@@ -301,6 +301,8 @@ export type MetricasDashboard = {
   emAndamento: number;
   faturamentoHoje: number;
   faturamento30Dias: number;
+  pagamentosPendentes: number;
+  valorPendente: number;
   avaliacoesPendentes: number;
   cuponsAtivos: number;
   ultimosPedidos: Pedido[];
@@ -316,7 +318,7 @@ export async function carregarDashboard(): Promise<MetricasDashboard> {
       supabase.from("cardapio_exemplo_categorias").select("id", { count: "exact", head: true }),
       supabase
         .from("cardapio_exemplo_pedidos")
-        .select("total, status")
+        .select("total, status, status_pagamento")
         .gte("created_at", inicioHoje.toISOString())
         .neq("status", "cancelado"),
       supabase
@@ -369,6 +371,10 @@ export async function carregarDashboard(): Promise<MetricasDashboard> {
     emAndamento: emAndamento.count ?? 0,
     faturamentoHoje: listaHoje.reduce((soma, p) => soma + Number(p.total ?? 0), 0),
     faturamento30Dias: lista30.reduce((soma, p) => soma + Number(p.total ?? 0), 0),
+    pagamentosPendentes: listaHoje.filter((p) => p.status_pagamento === "pendente").length,
+    valorPendente: listaHoje
+      .filter((p) => p.status_pagamento === "pendente")
+      .reduce((soma, p) => soma + Number(p.total ?? 0), 0),
     avaliacoesPendentes: avaliacoes.count ?? 0,
     cuponsAtivos: cupons.count ?? 0,
     ultimosPedidos: ultimosPedidos.map((row) => mapPedido(row, itensPorPedido.get(String(row.id)) ?? [])),

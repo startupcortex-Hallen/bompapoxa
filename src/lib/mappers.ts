@@ -243,6 +243,8 @@ export function mapPedido(row: Row, itens: ItemPedido[], historico: HistoricoPed
     bairro: texto(row.bairro),
     cidade: texto(row.cidade),
     referencia: texto(row.referencia),
+    latitude: row.latitude == null ? null : numero(row.latitude),
+    longitude: row.longitude == null ? null : numero(row.longitude),
     forma_pagamento: (texto(row.forma_pagamento) as Pedido["forma_pagamento"]) ?? "pix",
     troco_para: row.troco_para == null ? null : numero(row.troco_para),
     status: (texto(row.status) as StatusPedido) ?? "novo",
