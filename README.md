@@ -19,13 +19,29 @@ O banco também foi provisionado no projeto Supabase `tbckigurtfwpgnuhrapr` via 
 `cardapio-exemplo-imagens` e um administrador inicial. Nenhuma credencial administrativa,
 Service Role Key ou Personal Access Token foi incluída no repositório.
 
-A página pública está no ar e carrega o Supabase real sem erros. Ela exibe "Cardápio em
-preparação" porque ainda não há produtos cadastrados e os horários estão fechados — esse é o
-estado correto de uma operação ainda não configurada, não uma falha de conexão.
+A página pública está no ar e carrega o Supabase real sem erros. Ela exibe um cardápio de
+demonstração completo, claramente marcado como provisório, para validar a experiência enquanto
+os dados reais não chegam.
 
-Próximos passos: enviar logo, banner, fotos, produtos, adicionais, combos e horários pelo painel,
-além de configurar as URLs de autenticação e trocar a senha/e-mail do administrador inicial.
-Consulte [`supabase/README.md`](supabase/README.md) para os comandos e o procedimento.
+## Dados de demonstração
+
+O ambiente publicado contém:
+
+- 10 produtos ilustrativos, 6 adicionais, 2 combos, banner de demonstração, cupom `DEMO10` e horários provisórios.
+- Imagens ilustrativas geradas com o selo "IMAGEM ILUSTRATIVA • DEMONSTRAÇÃO"; não são fotos reais dos produtos.
+- Logo mantida no fallback tipográfico "BOM PA POXA" até o envio da arte oficial.
+- Preços, descrições, contatos e endereço são provisórios. O endereço permanece vazio.
+
+Arquivos:
+
+- [`supabase/seed-demo.sql`](supabase/seed-demo.sql) — recria o conjunto de demonstração.
+- [`supabase/cleanup-demo.sql`](supabase/cleanup-demo.sql) — remove produtos, combos, banner, cupom e restaura as configurações neutras.
+- As imagens ficam no bucket `cardapio-exemplo-imagens`, nas pastas `produtos/`, `combos/` e `banners/` com prefixo `demo-`.
+
+Para substituir pelo conteúdo real, edite ou exclua os itens pelo painel e envie a logo, as fotos
+e os dados verdadeiros. Também é possível executar `cleanup-demo.sql` e cadastrar tudo do zero.
+Consulte [`supabase/README.md`](supabase/README.md) para os comandos e o procedimento de
+autenticação.
 
 ## O que o sistema faz
 
@@ -206,7 +222,9 @@ o `index.html` e as URLs absolutas do README.
 - CRUD real de categoria: criação e exclusão com confirmação.
 - CRUD real de produto com upload de imagem no Storage, exibição no cardápio público sem novo deploy e exclusão com limpeza do objeto.
 - Pedido real anônimo via RPC: produto, cupom, cálculo de subtotal/desconto/total, criação, consulta por token e rejeição de token incorreto.
-- Todos os dados de teste foram removidos; contagens de produtos, cupons, pedidos e objetos de Storage voltaram a zero.
+- Os dados dos testes de pedido, categoria e produto foram removidos; o conjunto de demonstração permanece intencionalmente.
+- Seed de demonstração aplicado: 10 produtos, 6 adicionais, 2 combos, banner, cupom e horários.
+- Página pública live validada com 15 imagens ilustrativas carregadas, modal de produto, adicional, sacola e layout mobile sem overflow.
 - Cards, modais, sacola, checkout, acompanhamento, login, painel, 404 e layout mobile também foram validados em Chrome headless com Supabase simulado.
 - Fluxo publicado sem erros de console após a ativação do banco.
 - GitHub Actions concluído com sucesso em typecheck, lint, testes, validação SQL, build e deploy.
@@ -216,7 +234,7 @@ o `index.html` e as URLs absolutas do README.
 
 - Trocar a senha do administrador inicial em **Minha conta > Segurança** e alterar o e-mail no Supabase (**Authentication > Users**), pois o usuário inicial usa um e-mail reservado de provisionamento.
 - Configurar `Site URL` e `Redirect URLs` no Supabase Auth para o domínio do GitHub Pages e para o ambiente local.
-- Enviar a logo oficial, as fotos reais, os produtos, adicionais, combos, banners, cupons e horários pelo painel.
+- Substituir os dados de demonstração pelos dados reais: logo oficial, fotos, produtos, preços, adicionais, combos, banners, cupons e horários. Use `supabase/cleanup-demo.sql` para limpar o conjunto provisório.
 - O projeto não integra gateway de pagamento; o pagamento é registrado e conferido manualmente.
 - O painel atualiza pedidos por polling a cada 15 segundos; não foi adicionada publicação Realtime para evitar alterações em objetos compartilhados do Supabase.
 - O Personal Access Token usado no provisionamento foi fornecido na conversa e não foi gravado no repositório; recomenda-se revogá-lo ou rotacioná-lo após a configuração.

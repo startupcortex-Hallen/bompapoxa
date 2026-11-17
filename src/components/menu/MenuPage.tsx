@@ -477,7 +477,7 @@ function Hero({
         </div>
 
         <div className="relative">
-          <div className="aspect-[4/3] overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+          <div className="aspect-[16/9] overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
             {imagem ? (
               <img src={imagem} alt={config.nome_estabelecimento} className="h-full w-full object-cover" />
             ) : (
@@ -591,7 +591,7 @@ function CarregandoCardapio() {
             <Skeleton className="h-5 w-80" />
             <Skeleton className="h-11 w-40 rounded-full" />
           </div>
-          <Skeleton className="aspect-[4/3] rounded-3xl" />
+          <Skeleton className="aspect-[16/9] rounded-3xl" />
         </div>
         <div className="mt-12 space-y-4">
           <Skeleton className="h-10 w-full max-w-md rounded-full" />
