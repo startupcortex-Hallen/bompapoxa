@@ -213,6 +213,31 @@ assert.match(await inserirCategoria("anon", null), /^negado:/);
 assert.match(await inserirCategoria("authenticated", clientId), /^negado:/);
 assert.equal(await inserirCategoria("authenticated", adminId), "permitido");
 
+const comboCriado = await as("authenticated", adminId, async () => {
+  const resposta = await db.query(
+    "select public.cardapio_exemplo_admin_salvar_combo($1::jsonb, $2::jsonb) as id",
+    [
+      JSON.stringify({ nome: "Combo teste", descricao: null, imagem_url: null, preco: 10, disponivel: true, destaque: false, ordem: 0, ativo: true }),
+      JSON.stringify([{ produto_id: produto.rows[0].id, quantidade: 1 }]),
+    ],
+  );
+  return resposta.rows[0].id;
+});
+assert.ok(comboCriado, "administrador deve salvar combo de forma atômica");
+
+const comboCliente = await as("authenticated", clientId, async () => {
+  try {
+    await db.query(
+      "select public.cardapio_exemplo_admin_salvar_combo($1::jsonb, $2::jsonb)",
+      [JSON.stringify({ nome: "Combo cliente", preco: 10 }), JSON.stringify([{ produto_id: produto.rows[0].id, quantidade: 1 }])],
+    );
+    return "permitido";
+  } catch (erro) {
+    return `negado:${erro.code}`;
+  }
+});
+assert.match(comboCliente, /^negado:/, "cliente não pode salvar combo");
+
 const autopromocao = await as("authenticated", clientId, async () => {
   try {
     await db.exec("select public.cardapio_exemplo_promover_admin('cliente@example.com')");
