@@ -253,11 +253,11 @@ export function CartDrawer({
 
   return (
     <Drawer aberto={aberto} aoFechar={fechar} titulo={titulo} largura="sm:max-w-lg" conteudoRolavel={false}>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-col sm:h-full">
         {etapa === "sacola" ? (
           <>
             {itens.length === 0 ? (
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto p-5 max-sm:max-h-[52vh] max-sm:flex-none">
                 <EstadoVazio
                   titulo="Sua sacola está vazia"
                   descricao="Escolha um item do cardápio para começar."
@@ -266,7 +266,7 @@ export function CartDrawer({
               </div>
             ) : (
               <>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5 max-sm:max-h-[52vh] max-sm:flex-none">
                   {itens.map((item) => (
                     <div key={item.key} className="flex gap-3 rounded-xl border border-border p-3">
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-secondary">
@@ -379,8 +379,8 @@ export function CartDrawer({
         ) : null}
 
         {etapa === "dados" ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+          <div className="flex min-h-0 flex-col sm:flex-1">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5 max-sm:max-h-[58vh] max-sm:flex-none">
               <button type="button" onClick={() => setEtapa("sacola")} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="h-3.5 w-3.5" /> Voltar para a sacola
               </button>
@@ -533,7 +533,7 @@ export function CartDrawer({
         ) : null}
 
         {etapa === "sucesso" && resultado ? (
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center">
+          <div className="flex min-h-0 flex-col items-center justify-center overflow-y-auto p-6 text-center sm:flex-1">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-success/10 text-success">
               <CheckCircle2 className="h-9 w-9" />
             </div>

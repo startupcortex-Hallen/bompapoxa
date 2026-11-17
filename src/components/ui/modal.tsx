@@ -110,7 +110,7 @@ export function Drawer({
         aria-label={titulo}
         className={cn(
           "flex h-full min-h-0 w-full flex-col border-l border-border bg-card shadow-2xl",
-          "max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t",
+          "max-sm:h-auto max-sm:max-h-full max-sm:self-end max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t",
           largura,
         )}
       >
@@ -125,7 +125,7 @@ export function Drawer({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className={cn("min-h-0 flex-1", conteudoRolavel ? "overflow-y-auto" : "overflow-hidden")}>{children}</div>
+        <div className={cn("min-h-0 flex-1 max-sm:flex-none", conteudoRolavel ? "overflow-y-auto" : "overflow-hidden")}>{children}</div>
       </div>
     </div>,
     document.body,
