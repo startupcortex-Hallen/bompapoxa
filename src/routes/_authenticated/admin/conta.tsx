@@ -10,7 +10,7 @@ import { EstadoErro, Skeleton } from "@/components/ui/feedback";
 import { adminPerfilQuery, chaves } from "@/lib/queries";
 import { atualizarNomePerfil } from "@/lib/api";
 import { mensagemErro, recuperarSenha, sair } from "@/lib/auth";
-import { urlDoApp } from "@/integrations/supabase/client";
+import { supabase, urlDoApp } from "@/integrations/supabase/client";
 import { useTitulo } from "@/lib/page-title";
 
 export const Route = createFileRoute("/_authenticated/admin/conta")({
@@ -24,6 +24,11 @@ function ContaPage() {
   const [nome, setNome] = useState("");
   const [iniciado, setIniciado] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [novaSenha, setNovaSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [alterandoSenha, setAlterandoSenha] = useState(false);
+  const [erroSenha, setErroSenha] = useState<string | null>(null);
 
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-12 w-64" /><Skeleton className="h-56 rounded-2xl" /></div>;
@@ -66,6 +71,38 @@ function ContaPage() {
       toast.success("Enviamos um link de redefinição para seu e-mail.");
     } catch (erro) {
       toast.error(mensagemErro(erro));
+    }
+  };
+
+  const alterarSenha = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setErroSenha(null);
+    if (!email) {
+      setErroSenha("Sessão sem e-mail. Entre novamente.");
+      return;
+    }
+    if (novaSenha.length < 6) {
+      setErroSenha("A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+    if (novaSenha !== confirmarSenha) {
+      setErroSenha("As senhas não conferem.");
+      return;
+    }
+    setAlterandoSenha(true);
+    try {
+      const { error: erroReautenticacao } = await supabase.auth.signInWithPassword({ email, password: senhaAtual });
+      if (erroReautenticacao) throw new Error("Senha atual incorreta.");
+      const { error: erroAtualizacao } = await supabase.auth.updateUser({ password: novaSenha });
+      if (erroAtualizacao) throw erroAtualizacao;
+      toast.success("Senha alterada com sucesso.");
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmarSenha("");
+    } catch (erro) {
+      setErroSenha(mensagemErro(erro));
+    } finally {
+      setAlterandoSenha(false);
     }
   };
 
@@ -121,6 +158,14 @@ function ContaPage() {
               </div>
             </div>
           </div>
+          <form onSubmit={alterarSenha} className="mt-5 space-y-3 rounded-xl border border-border p-4">
+            <p className="flex items-center gap-2 font-medium"><KeyRound className="h-4 w-4" /> Alterar senha</p>
+            <Input label="Senha atual" type="password" autoComplete="current-password" value={senhaAtual} onChange={(event) => setSenhaAtual(event.target.value)} />
+            <Input label="Nova senha" type="password" autoComplete="new-password" value={novaSenha} onChange={(event) => setNovaSenha(event.target.value)} />
+            <Input label="Confirmar nova senha" type="password" autoComplete="new-password" value={confirmarSenha} onChange={(event) => setConfirmarSenha(event.target.value)} />
+            {erroSenha ? <p className="text-sm text-danger">{erroSenha}</p> : null}
+            <Button type="submit" variant="outline" carregando={alterandoSenha}>Alterar senha</Button>
+          </form>
         </AdminSection>
       </div>
     </div>
