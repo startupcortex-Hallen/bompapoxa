@@ -1,0 +1,18 @@
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/_authenticated")({
+  beforeLoad: async ({ location }) => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      throw redirect({ to: "/login", search: { redirect: location.pathname } });
+    }
+    const { data: admin, error: erroAdmin } = await supabase.rpc("cardapio_exemplo_e_admin");
+    if (erroAdmin || !admin) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/login", search: { erro: "acesso" } });
+    }
+    return { user: data.user };
+  },
+  component: () => <Outlet />,
+});

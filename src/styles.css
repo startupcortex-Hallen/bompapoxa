@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--app-background);
+  --color-foreground: var(--app-foreground);
+  --color-card: var(--app-card);
+  --color-card-foreground: var(--app-foreground);
+  --color-primary: var(--app-primary);
+  --color-primary-foreground: var(--app-primary-foreground);
+  --color-secondary: var(--app-secondary);
+  --color-secondary-foreground: var(--app-foreground);
+  --color-accent: var(--app-accent);
+  --color-accent-foreground: var(--app-accent-foreground);
+  --color-muted: var(--app-muted);
+  --color-muted-foreground: var(--app-muted-foreground);
+  --color-border: var(--app-border);
+  --color-input: var(--app-border);
+  --color-ring: var(--app-primary);
+  --color-danger: #b3261e;
+  --color-danger-foreground: #fff8f5;
+  --color-success: #2f6b4f;
+  --color-warning: #9a6700;
+  --font-display: var(--app-font-display);
+  --font-sans: var(--app-font-sans);
+  --radius-lg: 0.85rem;
+  --radius-xl: 1.15rem;
+  --radius-2xl: 1.5rem;
+}
+
+:root {
+  --app-primary: #b23a2a;
+  --app-primary-foreground: #fff9f1;
+  --app-secondary: #f1e3cf;
+  --app-accent: #e8a33d;
+  --app-accent-foreground: #2a1710;
+  --app-background: #faf5ec;
+  --app-foreground: #2a1710;
+  --app-card: color-mix(in srgb, var(--app-background) 70%, #ffffff);
+  --app-muted: color-mix(in srgb, var(--app-foreground) 58%, var(--app-background));
+  --app-muted-foreground: color-mix(in srgb, var(--app-foreground) 64%, var(--app-background));
+  --app-border: color-mix(in srgb, var(--app-foreground) 14%, var(--app-background));
+  --app-font-display: "Fraunces", Georgia, serif;
+  --app-font-sans: "Figtree", system-ui, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  border-color: var(--app-border);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--app-background);
+  color: var(--app-foreground);
+  font-family: var(--app-font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--app-font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--app-accent);
+  color: var(--app-accent-foreground);
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--app-muted-foreground);
+}
+
+.pattern-hero {
+  background-image:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--app-accent) 34%, transparent) 0 18%, transparent 42%),
+    radial-gradient(circle at 88% 10%, color-mix(in srgb, var(--app-primary) 24%, transparent) 0 20%, transparent 46%),
+    radial-gradient(circle at 70% 90%, color-mix(in srgb, var(--app-secondary) 80%, transparent) 0 24%, transparent 52%);
+}
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.card-hover {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px -28px rgb(42 23 16 / 0.35);
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--app-foreground) 8%, var(--app-background));
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, #ffffff 55%, transparent), transparent);
+  animation: skeleton 1.5s infinite;
+}
+
+@keyframes skeleton {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animar-subir {
+  animation: subir 320ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

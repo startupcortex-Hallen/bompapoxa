@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /bompapoxa/admin
+Disallow: /bompapoxa/login
+Disallow: /bompapoxa/recuperar-senha
+Disallow: /bompapoxa/redefinir-senha
+Disallow: /bompapoxa/pedido
