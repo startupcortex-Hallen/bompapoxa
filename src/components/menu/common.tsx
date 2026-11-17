@@ -86,7 +86,7 @@ export function Quantidade({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full border border-border bg-card",
+        "inline-flex w-fit shrink-0 items-center rounded-full border border-border bg-card",
         compacto ? "h-8" : "h-10",
       )}
     >
