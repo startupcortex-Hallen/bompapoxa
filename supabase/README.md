@@ -156,6 +156,9 @@ Validação live no projeto Supabase real:
 - produto visível no cardápio público sem novo deploy;
 - exclusão do produto e do objeto de imagem;
 - pedido anônimo real com cupom, cálculo de valores, consulta por token e rejeição de token incorreto;
+- checkout com CEP (ViaCEP), busca de endereço (Photon), geolocalização e mapa;
+- coordenadas de entrega gravadas e retornadas por `get_pedido`;
+- pagamento pendente exibido no dashboard, confirmação de pagamento e atualização do pedido;
 - limpeza de todos os dados de teste.
 
 ## O que ainda depende de ação manual

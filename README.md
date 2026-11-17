@@ -231,6 +231,9 @@ o `index.html` e as URLs absolutas do README.
 - Seed de demonstração aplicado: 10 produtos com 3 imagens cada, 8 adicionais, 2 combos, banner, cupom e horários.
 - Página pública live validada com 15 imagens ilustrativas carregadas, modal de produto, carrossel, adicional, sacola e layout mobile sem overflow.
 - Sacola mobile validada com altura dinâmica, rolagem da lista, botão "Continuar" sempre visível e controle de quantidade compacto.
+- Checkout live com CEP automático (ViaCEP), busca de endereço (Photon), localização atual (geolocalização) e mapa Leaflet/OpenStreetMap.
+- Coordenadas gravadas no pedido e link "Abrir localização no mapa" validado no painel administrativo.
+- Dashboard de vendas mostrando pagamentos pendentes: R$ 55,90 antes da confirmação e R$ 0,00 depois de "Marcar pago".
 - CRUD live de adicionais, combos, banners e cupons: criação e exclusão.
 - Fluxo real de pedido com mudança de status, envio de avaliação, aprovação, exclusão da avaliação e exclusão do pedido.
 - Configurações e horários salvos pela interface real do painel.

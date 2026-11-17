@@ -124,7 +124,7 @@ function PedidosPage() {
     <div className="space-y-6">
       <AdminPageHeader
         titulo="Pedidos"
-        descricao="Acompanhe a cozinha e atualize cada pedido. A lista é atualizada automaticamente a cada 15 segundos."
+        descricao="Acompanhe a cozinha e atualize cada pedido. Novos pedidos entram como Recebido e pagamento Pendente; a disponibilidade dos produtos é controlada manualmente em Produtos. A lista é atualizada a cada 15 segundos."
         acao={
           <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             <span className={cn("h-2 w-2 rounded-full", isFetching ? "bg-accent" : "bg-success")} />

@@ -75,6 +75,7 @@ export function MapaEndereco({
     setErro(null);
     try {
       const endereco = await reverterCoordenadas(latitude, longitude);
+      if (endereco.rotulo) setBusca(endereco.rotulo);
       aoMudarRef.current(ponto, endereco);
     } finally {
       setBuscandoEndereco(false);
@@ -158,7 +159,10 @@ export function MapaEndereco({
         colocarMarcador(ponto);
         mapaRef.current?.flyTo([ponto.latitude, ponto.longitude], 17);
         void reverterCoordenadas(ponto.latitude, ponto.longitude)
-          .then((endereco) => aoMudarRef.current(ponto, endereco))
+          .then((endereco) => {
+            if (endereco.rotulo) setBusca(endereco.rotulo);
+            aoMudarRef.current(ponto, endereco);
+          })
           .finally(() => setLocalizando(false));
       },
       (falha) => {
