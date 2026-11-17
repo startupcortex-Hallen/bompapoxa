@@ -17,12 +17,15 @@ A migration não remove, renomeia ou altera tabelas de outros aplicativos. Ela a
 objetos novos e usa `IF NOT EXISTS`, `ON CONFLICT DO NOTHING` e `CREATE OR REPLACE` quando
 adequado.
 
-## Executar a migration
+## Migration
 
-A chave fornecida no frontend é `anon`, que não permite DDL. A execução precisa ser feita com
-uma credencial administrativa, por exemplo pelo SQL Editor do painel do Supabase.
+A migration já foi aplicada no projeto `tbckigurtfwpgnuhrapr` via Management API. Foram
+verificados 14 tabelas `cardapio_exemplo_*`, as funções, os triggers, as políticas e o bucket
+`cardapio-exemplo-imagens`.
 
-1. Abra o projeto `tbckigurtfwpgnuhrapr` no Supabase.
+Para reaplicar em outro projeto ou recuperar o ambiente:
+
+1. Abra o projeto no Supabase.
 2. Vá em **SQL Editor**.
 3. Abra `supabase/migrations/202611170001_bompapoxa.sql`.
 4. Copie todo o conteúdo, cole no SQL Editor e execute.
@@ -33,9 +36,13 @@ uma credencial administrativa, por exemplo pelo SQL Editor do painel do Supabase
 A migration pode ser executada novamente com segurança para recriar funções, triggers, índices e
 políticas. Ela não apaga dados.
 
-## Criar o primeiro administrador
+## Administrador
 
-O sistema não tem cadastro público de administrador. O fluxo é:
+O sistema não tem cadastro público de administrador. Já existe um administrador inicial de
+provisionamento no projeto, com e-mail reservado e senha temporária. Altere a senha em
+**Minha conta > Segurança** e o e-mail em **Authentication > Users** no Supabase.
+
+Para criar ou promover outro administrador:
 
 1. Em **Authentication > Users**, crie um usuário com e-mail e senha.
 2. No SQL Editor, execute:
@@ -49,8 +56,8 @@ select public.cardapio_exemplo_promover_admin('seu-email@exemplo.com');
 O trigger `cardapio_exemplo_guardar_papel_perfil` impede que um usuário autenticado comum altere
 o próprio papel para `admin`. A função de promoção é executável apenas por `service_role`/postgres.
 
-Para promover outro administrador, repita o procedimento. Para remover o acesso, use o SQL Editor
-(com credencial administrativa) para atualizar o papel para `cliente` ou excluir o perfil.
+Para remover o acesso, use o SQL Editor (com credencial administrativa) para atualizar o papel
+para `cliente` ou excluir o perfil.
 
 ## Configuração de autenticação
 
@@ -109,7 +116,7 @@ exige login.
 
 ## Validação realizada
 
-A migration é executada automaticamente por `npm run test:sql` em PostgreSQL (PGlite) usando
+A migration também é executada automaticamente por `npm run test:sql` em PostgreSQL (PGlite) com
 stubs de `auth` e `storage`. Os testes cobrem:
 
 - criação das 14 tabelas;
@@ -125,10 +132,23 @@ stubs de `auth` e `storage`. Os testes cobrem:
 - negação de autopromoção a administrador;
 - upload de storage permitido apenas para administrador.
 
+Validação live no projeto Supabase real:
+
+- migration aplicada via Management API;
+- 14 tabelas, 25 policies públicas + 4 de Storage, bucket e administrador verificados;
+- login real do administrador no site publicado;
+- criação e exclusão de categoria;
+- criação de produto com upload de imagem no Storage;
+- produto visível no cardápio público sem novo deploy;
+- exclusão do produto e do objeto de imagem;
+- pedido anônimo real com cupom, cálculo de valores, consulta por token e rejeição de token incorreto;
+- limpeza de todos os dados de teste.
+
 ## O que ainda depende de ação manual
 
-- Executar a migration no projeto Supabase.
-- Criar e promover o usuário administrador.
+- Trocar a senha do administrador inicial em **Minha conta > Segurança**.
+- Alterar o e-mail do administrador inicial em **Authentication > Users** no Supabase.
 - Configurar as URLs de autenticação.
-- Enviar logo, capa, fotos e produtos reais.
+- Enviar logo, capa, fotos, produtos, adicionais, combos, banners, cupons e horários reais.
 - Se desejar tempo real, habilitar a publicação Realtime das tabelas `cardapio_exemplo_pedidos` e `cardapio_exemplo_historico_pedidos` no painel; o frontend usa polling a cada 15 segundos por padrão.
+- Revogar ou rotacionar o Personal Access Token usado no provisionamento, pois ele foi compartilhado na conversa e não foi gravado no repositório.

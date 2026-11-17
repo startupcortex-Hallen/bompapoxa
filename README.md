@@ -11,16 +11,21 @@ no GitHub Pages.
 
 ## Estado da entrega
 
-O código está pronto para build, testes e publicação. A versão publicada está em
+O código está pronto, testado e publicado em
 https://startupcortex-hallen.github.io/bompapoxa/.
 
-A ativação do banco depende de uma ação manual no Supabase, porque a chave fornecida é a chave
-pública `anon` e não permite executar DDL (criação de tabelas, funções e políticas). Nenhuma
-credencial administrativa foi incluída no repositório. Enquanto a migration não for executada,
-a página pública exibe o estado de configuração ("Cardápio em preparação") em vez do cardápio.
+O banco também foi provisionado no projeto Supabase `tbckigurtfwpgnuhrapr` via Management API:
+14 tabelas prefixadas, funções, triggers, 25 policies públicas + 4 policies de Storage, bucket
+`cardapio-exemplo-imagens` e um administrador inicial. Nenhuma credencial administrativa,
+Service Role Key ou Personal Access Token foi incluída no repositório.
 
-Para o sistema funcionar em produção, execute a migration descrita em
-[`supabase/README.md`](supabase/README.md) e crie o primeiro administrador.
+A página pública está no ar e carrega o Supabase real sem erros. Ela exibe "Cardápio em
+preparação" porque ainda não há produtos cadastrados e os horários estão fechados — esse é o
+estado correto de uma operação ainda não configurada, não uma falha de conexão.
+
+Próximos passos: enviar logo, banner, fotos, produtos, adicionais, combos e horários pelo painel,
+além de configurar as URLs de autenticação e trocar a senha/e-mail do administrador inicial.
+Consulte [`supabase/README.md`](supabase/README.md) para os comandos e o procedimento.
 
 ## O que o sistema faz
 
@@ -194,21 +199,28 @@ o `index.html` e as URLs absolutas do README.
 - `npm run typecheck`
 - `npm run lint`
 - `npm test` — 22 testes unitários
-- `npm run test:sql` — migration executada em PostgreSQL via PGlite com stubs de `auth` e `storage`, incluindo pedido completo, cupom, itens, histórico, promoção de administrador e políticas RLS.
+- `npm run test:sql` — migration executada em PostgreSQL via PGlite com stubs de `auth` e `storage`, incluindo pedido completo, cupom, itens, histórico, promoção de administrador, RPC de combos e políticas RLS.
 - `npm run build`
-- Fluxo de interface validado em Chrome headless com respostas simuladas do Supabase: cardápio desktop e mobile, busca, produto, adicional, sacola, checkout, confirmação, acompanhamento, login, redirecionamento do painel e página 404.
-- Nenhum erro de console no fluxo testado.
+- Migration aplicada no Supabase real via Management API: 14 tabelas, 25 policies públicas + 4 de Storage, bucket e administrador inicial verificados.
+- Login real do administrador no site publicado e leitura do dashboard com dados reais.
+- CRUD real de categoria: criação e exclusão com confirmação.
+- CRUD real de produto com upload de imagem no Storage, exibição no cardápio público sem novo deploy e exclusão com limpeza do objeto.
+- Pedido real anônimo via RPC: produto, cupom, cálculo de subtotal/desconto/total, criação, consulta por token e rejeição de token incorreto.
+- Todos os dados de teste foram removidos; contagens de produtos, cupons, pedidos e objetos de Storage voltaram a zero.
+- Cards, modais, sacola, checkout, acompanhamento, login, painel, 404 e layout mobile também foram validados em Chrome headless com Supabase simulado.
+- Fluxo publicado sem erros de console após a ativação do banco.
+- GitHub Actions concluído com sucesso em typecheck, lint, testes, validação SQL, build e deploy.
 - Layout mobile sem overflow horizontal.
 
 ## Limitações e ações manuais
 
-- Executar a migration no Supabase (a chave anon não permite DDL).
-- Criar o usuário administrador no Supabase Auth e promovê-lo com `cardapio_exemplo_promover_admin`.
+- Trocar a senha do administrador inicial em **Minha conta > Segurança** e alterar o e-mail no Supabase (**Authentication > Users**), pois o usuário inicial usa um e-mail reservado de provisionamento.
 - Configurar `Site URL` e `Redirect URLs` no Supabase Auth para o domínio do GitHub Pages e para o ambiente local.
-- Enviar a logo oficial, as fotos reais e os produtos reais pelo painel.
+- Enviar a logo oficial, as fotos reais, os produtos, adicionais, combos, banners, cupons e horários pelo painel.
 - O projeto não integra gateway de pagamento; o pagamento é registrado e conferido manualmente.
 - O painel atualiza pedidos por polling a cada 15 segundos; não foi adicionada publicação Realtime para evitar alterações em objetos compartilhados do Supabase.
-- O push para o GitHub e a execução da migration dependem de credenciais que não foram fornecidas neste ambiente.
+- O Personal Access Token usado no provisionamento foi fornecido na conversa e não foi gravado no repositório; recomenda-se revogá-lo ou rotacioná-lo após a configuração.
+- A licença do THAAL original deve ser confirmada antes de redistribuir o código.
 
 ## Créditos e licença
 
