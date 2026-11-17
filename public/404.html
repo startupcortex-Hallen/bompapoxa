@@ -9,7 +9,9 @@
         var base = "/bompapoxa";
         var path = location.pathname;
         if (path.indexOf(base) === 0) path = path.slice(base.length);
-        sessionStorage.setItem("bompapoxa.redirect", path + location.search + location.hash);
+        try {
+          sessionStorage.setItem("bompapoxa.redirect", path + location.search + location.hash);
+        } catch (_) {}
         location.replace(base + "/");
       })();
     </script>
