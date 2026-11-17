@@ -481,6 +481,21 @@ function Hero({
   const imagem = config.banner_url ?? banner?.imagem_url ?? HERO_POSTER;
   const semMovimento = usePrefersReducedMotion();
   const [videoFalhou, setVideoFalhou] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (semMovimento) return;
+    const video = videoRef.current;
+    if (!video) return;
+    const tentar = () => {
+      void video.play().catch(() => undefined);
+    };
+    tentar();
+    const eventos = ["pointerdown", "touchstart", "keydown", "scroll"] as const;
+    eventos.forEach((evento) => window.addEventListener(evento, tentar, { once: true, passive: true }));
+    return () => eventos.forEach((evento) => window.removeEventListener(evento, tentar));
+  }, [semMovimento]);
+
   return (
     <section id="inicio" className="relative isolate min-h-[100svh] overflow-hidden bg-[#090909]">
       <div className="absolute inset-0">
@@ -493,6 +508,7 @@ function Hero({
         />
         {!semMovimento ? (
           <video
+            ref={videoRef}
             className={cn(
               "hero-media absolute inset-0 h-full w-full object-cover transition-opacity duration-1000",
               videoFalhou && "hidden",
