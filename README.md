@@ -11,10 +11,13 @@ no GitHub Pages.
 
 ## Estado da entrega
 
-O código está pronto para build, testes e publicação. A ativação do banco depende de uma ação
-manual no Supabase, porque a chave fornecida é a chave pública `anon` e não permite executar DDL
-(criação de tabelas, funções e políticas). Nenhuma credencial administrativa foi incluída no
-repositório.
+O código está pronto para build, testes e publicação. A versão publicada está em
+https://startupcortex-hallen.github.io/bompapoxa/.
+
+A ativação do banco depende de uma ação manual no Supabase, porque a chave fornecida é a chave
+pública `anon` e não permite executar DDL (criação de tabelas, funções e políticas). Nenhuma
+credencial administrativa foi incluída no repositório. Enquanto a migration não for executada,
+a página pública exibe o estado de configuração ("Cardápio em preparação") em vez do cardápio.
 
 Para o sistema funcionar em produção, execute a migration descrita em
 [`supabase/README.md`](supabase/README.md) e crie o primeiro administrador.
@@ -207,8 +210,13 @@ o `index.html` e as URLs absolutas do README.
 - O painel atualiza pedidos por polling a cada 15 segundos; não foi adicionada publicação Realtime para evitar alterações em objetos compartilhados do Supabase.
 - O push para o GitHub e a execução da migration dependem de credenciais que não foram fornecidas neste ambiente.
 
-## Créditos
+## Créditos e licença
 
 Base funcional e arquitetura original: [THAAL](https://github.com/rummanhassan13/thaal), de
 Rumman Hassan. Adaptação para BOM PA POXA, tradução, identidade, isolamento de banco e publicação
 estática realizados neste repositório.
+
+O THAAL original não declara uma licença de código aberto; os direitos permanecem reservados ao
+autor original. Esta adaptação foi realizada para o repositório BOM PA POXA a pedido do
+responsável pelo estabelecimento. Antes de redistribuir o código, confirme a autorização com o
+autor original.
