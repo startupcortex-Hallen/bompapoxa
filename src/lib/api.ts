@@ -475,6 +475,11 @@ export async function atualizarPagamentoPedido(id: string, status_pagamento: Sta
   if (error) falhar(error);
 }
 
+export async function excluirPedido(id: string): Promise<void> {
+  const { error } = await supabase.from("cardapio_exemplo_pedidos").delete().eq("id", id);
+  if (error) falhar(error);
+}
+
 export async function aprovarAvaliacao(id: string, aprovado: boolean): Promise<void> {
   const { error } = await supabase.from("cardapio_exemplo_avaliacoes").update({ aprovado }).eq("id", id);
   if (error) falhar(error);

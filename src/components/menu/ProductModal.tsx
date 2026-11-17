@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertCircle, Check, ImageIcon, Timer } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, ImageIcon, Timer } from "lucide-react";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -44,6 +45,8 @@ export function ProdutoModal({
   aoFechar,
   aoAdicionar,
   bloqueado,
+  nomeEstabelecimento,
+  logoUrl,
 }: {
   produto: Produto | null;
   aberto: boolean;
@@ -58,12 +61,14 @@ export function ProdutoModal({
     imagemUrl: string | null;
   }) => void;
   bloqueado: boolean;
+  nomeEstabelecimento?: string;
+  logoUrl?: string | null;
 }) {
   const [quantidade, setQuantidade] = useState(1);
   const [observacao, setObservacao] = useState("");
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [imagem, setImagem] = useState<string | null>(null);
+  const [indiceImagem, setIndiceImagem] = useState(0);
 
   const grupos = useMemo(() => agruparAdicionais(produto?.adicionais ?? []), [produto]);
   const imagens = useMemo(() => {
@@ -77,11 +82,12 @@ export function ProdutoModal({
     setObservacao("");
     setSelecionados([]);
     setAviso(null);
-    setImagem(imagemAtiva(produto));
+    setIndiceImagem(0);
   }, [aberto, produto]);
 
   if (!produto) return null;
 
+  const imagem = imagens[indiceImagem] ?? null;
   const adicionaisSelecionados = produto.adicionais.filter((a) => selecionados.includes(a.id));
   const somaAdicionais = adicionaisSelecionados.reduce((soma, a) => soma + a.preco, 0);
   const unitario = precoVigente(produto) + somaAdicionais;
@@ -130,12 +136,49 @@ export function ProdutoModal({
     <Modal aberto={aberto} aoFechar={aoFechar} titulo={produto.nome} largura="max-w-3xl">
       <div className="grid gap-6 md:grid-cols-[1fr_1.1fr]">
         <div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-secondary">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-secondary">
             {imagem ? (
               <img src={imagem} alt={produto.nome} className="h-full w-full object-cover" />
             ) : (
               <ImagemProduto url={null} nome={produto.nome} />
             )}
+            <div className="absolute left-3 top-3 z-10 rounded-full border border-white/50 bg-background/90 px-3 py-1.5 backdrop-blur">
+              <BrandLogo nome={nomeEstabelecimento ?? "BOM PA POXA"} logoUrl={logoUrl} compacto />
+            </div>
+            {imagens.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIndiceImagem((atual) => (atual - 1 + imagens.length) % imagens.length)}
+                  aria-label="Imagem anterior"
+                  className="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/65"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIndiceImagem((atual) => (atual + 1) % imagens.length)}
+                  aria-label="Próxima imagem"
+                  className="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/65"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+                <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+                  {imagens.map((url, indice) => (
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => setIndiceImagem(indice)}
+                      aria-label={`Ver imagem ${indice + 1}`}
+                      className={cn(
+                        "h-2 rounded-full transition-all",
+                        indice === indiceImagem ? "w-5 bg-white" : "w-2 bg-white/60 hover:bg-white",
+                      )}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
             {!produto.disponivel ? (
               <div className="absolute inset-0 grid place-items-center bg-black/55">
                 <span className="rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-black">Esgotado</span>
@@ -144,16 +187,16 @@ export function ProdutoModal({
           </div>
           {imagens.length > 1 ? (
             <div className="mt-2 flex gap-2 overflow-x-auto">
-              {imagens.map((url) => (
+              {imagens.map((url, indice) => (
                 <button
                   key={url}
                   type="button"
-                  onClick={() => setImagem(url)}
+                  onClick={() => setIndiceImagem(indice)}
                   className={cn(
                     "h-14 w-16 shrink-0 overflow-hidden rounded-lg border",
-                    imagem === url ? "border-primary" : "border-border",
+                    indice === indiceImagem ? "border-primary" : "border-border",
                   )}
-                  aria-label="Ver imagem"
+                  aria-label={`Ver imagem ${indice + 1}`}
                 >
                   <img src={url} alt="" className="h-full w-full object-cover" />
                 </button>
@@ -279,7 +322,4 @@ export function ProdutoModal({
   );
 }
 
-function imagemAtiva(produto: Produto | null): string | null {
-  if (!produto) return null;
-  return produto.imagem_url ?? produto.galeria[0] ?? null;
-}
+

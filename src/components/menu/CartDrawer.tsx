@@ -252,12 +252,12 @@ export function CartDrawer({
   const titulo = etapa === "sucesso" ? "Pedido confirmado" : etapa === "dados" ? "Finalizar pedido" : "Sua sacola";
 
   return (
-    <Drawer aberto={aberto} aoFechar={fechar} titulo={titulo} largura="sm:max-w-lg">
-      <div className="flex min-h-full flex-col">
+    <Drawer aberto={aberto} aoFechar={fechar} titulo={titulo} largura="sm:max-w-lg" conteudoRolavel={false}>
+      <div className="flex h-full min-h-0 flex-col">
         {etapa === "sacola" ? (
           <>
             {itens.length === 0 ? (
-              <div className="p-5">
+              <div className="flex-1 overflow-y-auto p-5">
                 <EstadoVazio
                   titulo="Sua sacola está vazia"
                   descricao="Escolha um item do cardápio para começar."
@@ -266,7 +266,7 @@ export function CartDrawer({
               </div>
             ) : (
               <>
-                <div className="flex-1 space-y-3 p-5">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-5">
                   {itens.map((item) => (
                     <div key={item.key} className="flex gap-3 rounded-xl border border-border p-3">
                       <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-secondary">
@@ -343,7 +343,7 @@ export function CartDrawer({
                   </button>
                 </div>
 
-                <div className="safe-bottom sticky bottom-0 border-t border-border bg-card p-5">
+                <div className="shrink-0 border-t border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                   {!podePedir ? (
                     <p className="mb-3 rounded-lg bg-accent/15 px-3 py-2 text-xs text-foreground">
                       A loja está fechada ou os pedidos estão pausados. Você pode voltar mais tarde.
@@ -379,8 +379,8 @@ export function CartDrawer({
         ) : null}
 
         {etapa === "dados" ? (
-          <div className="flex flex-1 flex-col">
-            <div className="flex-1 space-y-5 p-5">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
               <button type="button" onClick={() => setEtapa("sacola")} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="h-3.5 w-3.5" /> Voltar para a sacola
               </button>
@@ -521,7 +521,7 @@ export function CartDrawer({
               </div>
             </div>
 
-            <div className="safe-bottom sticky bottom-0 border-t border-border bg-card p-5">
+            <div className="shrink-0 border-t border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               <Button className="w-full" size="lg" carregando={enviando} onClick={finalizar} disabled={!podePedir}>
                 {enviando ? "Enviando pedido…" : `Confirmar pedido • ${moedaBRL(total)}`}
               </Button>
@@ -533,7 +533,7 @@ export function CartDrawer({
         ) : null}
 
         {etapa === "sucesso" && resultado ? (
-          <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-success/10 text-success">
               <CheckCircle2 className="h-9 w-9" />
             </div>

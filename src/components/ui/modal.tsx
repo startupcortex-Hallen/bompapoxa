@@ -77,12 +77,14 @@ export function Drawer({
   titulo,
   children,
   largura = "sm:max-w-md",
+  conteudoRolavel = true,
 }: {
   aberto: boolean;
   aoFechar: () => void;
   titulo: string;
   children: ReactNode;
   largura?: string;
+  conteudoRolavel?: boolean;
 }) {
   useEffect(() => {
     if (!aberto) return;
@@ -107,8 +109,8 @@ export function Drawer({
         aria-modal="true"
         aria-label={titulo}
         className={cn(
-          "flex h-full w-full flex-col border-l border-border bg-card shadow-2xl",
-          "max-sm:mt-16 max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t",
+          "flex h-full min-h-0 w-full flex-col border-l border-border bg-card shadow-2xl",
+          "max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t",
           largura,
         )}
       >
@@ -123,7 +125,7 @@ export function Drawer({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className={cn("min-h-0 flex-1", conteudoRolavel ? "overflow-y-auto" : "overflow-hidden")}>{children}</div>
       </div>
     </div>,
     document.body,

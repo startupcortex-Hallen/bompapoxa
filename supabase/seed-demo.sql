@@ -18,7 +18,7 @@ values
     'Peixe fresco com leite de coco, dendê, pimentões e coentro. Acompanha arroz e farofa.',
     59.90, 49.90,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-01-moqueca.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-01-moqueca-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-01-moqueca-3.png']::text[],
     array['peixe', 'leite de coco', 'dendê', 'pimentão', 'coentro', 'arroz', 'farofa']::text[],
     true, true, 30, 0, true, 0, 10
   ),
@@ -29,7 +29,7 @@ values
     'Acarajé crocante com vatapá, caruru, camarão e pimenta baiana.',
     28.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-02-acaraje.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-02-acaraje-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-02-acaraje-3.png']::text[],
     array['feijão-fradinho', 'vatapá', 'caruru', 'camarão', 'pimenta']::text[],
     true, true, 20, 1, true, 0, 10
   ),
@@ -40,7 +40,7 @@ values
     'Camarão com mandioca, leite de coco e temperos da casa.',
     54.90, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-03-bobo.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-03-bobo-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-03-bobo-3.png']::text[],
     array['camarão', 'mandioca', 'leite de coco', 'coentro']::text[],
     true, false, 30, 2, true, 0, 10
   ),
@@ -51,7 +51,7 @@ values
     'Feijão preto com carnes selecionadas, arroz, couve e farofa.',
     46.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-04-feijoada.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-04-feijoada-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-04-feijoada-3.png']::text[],
     array['feijão preto', 'carne seca', 'linguiça', 'arroz', 'couve', 'farofa']::text[],
     true, false, 40, 3, true, 0, 10
   ),
@@ -62,7 +62,7 @@ values
     'Natural, gelada e servida na hora.',
     8.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-05-agua-coco.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-05-agua-coco-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-05-agua-coco-3.png']::text[],
     array['água de coco']::text[],
     true, false, null, 0, true, 0, 10
   ),
@@ -73,7 +73,7 @@ values
     'Laranja espremida na hora.',
     10.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-06-suco-laranja.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-06-suco-laranja-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-06-suco-laranja-3.png']::text[],
     array['laranja']::text[],
     true, false, null, 1, true, 0, 10
   ),
@@ -84,7 +84,7 @@ values
     'Limão, cachaça e açúcar. Beba com moderação. Venda proibida para menores de 18 anos.',
     18.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-07-caipirinha.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-07-caipirinha-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-07-caipirinha-3.png']::text[],
     array['limão', 'cachaça', 'açúcar']::text[],
     true, false, null, 2, true, 0, 10
   ),
@@ -95,7 +95,7 @@ values
     'Coco, açúcar e um toque de cravo.',
     12.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-08-cocada.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-08-cocada-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-08-cocada-3.png']::text[],
     array['coco', 'açúcar', 'cravo']::text[],
     true, false, null, 0, true, 0, 10
   ),
@@ -106,7 +106,7 @@ values
     'Gema, coco e açúcar, com casquinha dourada.',
     10.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-09-quindim.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-09-quindim-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-09-quindim-3.png']::text[],
     array['gema', 'coco', 'açúcar']::text[],
     true, false, null, 1, true, 0, 10
   ),
@@ -117,7 +117,7 @@ values
     'Doce, quentinho e polvilhado com canela.',
     12.00, null,
     'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-10-bolinho.png',
-    '{}'::text[],
+    array['https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-10-bolinho-2.png', 'https://tbckigurtfwpgnuhrapr.supabase.co/storage/v1/object/public/cardapio-exemplo-imagens/produtos/demo-10-bolinho-3.png']::text[],
     array['farinha', 'leite', 'açúcar', 'canela']::text[],
     true, false, null, 2, true, 0, 10
   )
@@ -146,7 +146,9 @@ values
   ('e0000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000001', 'Arroz extra', 'Porção extra de arroz branco.', 5.00, null, 'Extras', false, 0, 3, true, 2),
   ('e0000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000002', 'Vatapá extra', 'Porção extra de vatapá.', 4.00, null, 'Extras', false, 0, 2, true, 0),
   ('e0000000-0000-4000-8000-000000000005', 'd0000000-0000-4000-8000-000000000002', 'Camarão extra', 'Camarões extras.', 8.00, null, 'Extras', false, 0, 2, true, 1),
-  ('e0000000-0000-4000-8000-000000000006', 'd0000000-0000-4000-8000-000000000004', 'Farofa extra', 'Porção extra de farofa.', 3.50, null, 'Extras', false, 0, 3, true, 0)
+  ('e0000000-0000-4000-8000-000000000006', 'd0000000-0000-4000-8000-000000000004', 'Farofa extra', 'Porção extra de farofa.', 3.50, null, 'Extras', false, 0, 3, true, 0),
+  ('e0000000-0000-4000-8000-000000000007', 'd0000000-0000-4000-8000-000000000003', 'Farofa extra', 'Porção extra de farofa.', 3.50, null, 'Extras', false, 0, 3, true, 0),
+  ('e0000000-0000-4000-8000-000000000008', 'd0000000-0000-4000-8000-000000000003', 'Pimenta extra', 'Pimenta baiana à parte.', 0.00, null, 'Extras', false, 0, 3, true, 1)
 on conflict (id) do update set
   produto_id = excluded.produto_id,
   nome = excluded.nome,

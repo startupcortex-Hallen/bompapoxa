@@ -10,6 +10,7 @@ import {
   MapPin,
   Search,
   Store,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,7 +20,7 @@ import { Badge, EstadoVazio, Skeleton } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { adminPedidosQuery, chaves } from "@/lib/queries";
-import { atualizarPagamentoPedido, atualizarStatusPedido } from "@/lib/api";
+import { atualizarPagamentoPedido, atualizarStatusPedido, excluirPedido } from "@/lib/api";
 import { dataHoraBR, horaBR, moedaBRL, tempoRelativo } from "@/lib/format";
 import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL, STATUS_DESCRICAO, STATUS_LABEL, proximosStatus } from "@/lib/order-status";
 import { useTitulo } from "@/lib/page-title";
@@ -101,6 +102,18 @@ function PedidosPage() {
       await invalidar();
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : "Não foi possível atualizar o pagamento.");
+    }
+  };
+
+  const excluir = async (pedido: Pedido) => {
+    if (!window.confirm(`Excluir definitivamente o pedido #${pedido.numero}? Os itens e o histórico também serão removidos.`)) return;
+    try {
+      await excluirPedido(pedido.id);
+      toast.success("Pedido excluído.");
+      setSelecionadoId(null);
+      await invalidar();
+    } catch (erro) {
+      toast.error(erro instanceof Error ? erro.message : "Não foi possível excluir o pedido.");
     }
   };
 
@@ -224,6 +237,7 @@ function PedidosPage() {
             pedido={selecionado}
             aoMudarStatus={(status) => void mudarStatus(selecionado, status)}
             aoMarcarPago={() => void marcarPago(selecionado)}
+            aoExcluir={() => void excluir(selecionado)}
           />
         ) : null}
       </Modal>
@@ -231,7 +245,7 @@ function PedidosPage() {
   );
 }
 
-function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago }: { pedido: Pedido; aoMudarStatus: (status: StatusPedido) => void; aoMarcarPago: () => void }) {
+function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago, aoExcluir }: { pedido: Pedido; aoMudarStatus: (status: StatusPedido) => void; aoMarcarPago: () => void; aoExcluir: () => void }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary/35 px-4 py-3">
@@ -325,6 +339,9 @@ function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago }: { pedido: Pedido
             <XCircle className="h-4 w-4" /> Cancelar pedido
           </Button>
         ) : null}
+        <Button variant="ghost" className="ml-auto text-danger hover:bg-danger/10" onClick={aoExcluir}>
+          <Trash2 className="h-4 w-4" /> Excluir pedido
+        </Button>
       </div>
     </div>
   );

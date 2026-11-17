@@ -390,6 +390,8 @@ function Conteudo({ data, atualizar, atualizando }: { data: CardapioPublico; atu
           carrinho.adicionar({ ...dados, observacao: dados.observacao });
         }}
         bloqueado={bloqueado}
+        nomeEstabelecimento={config.nome_estabelecimento}
+        logoUrl={config.logo_url}
       />
       <ComboModal
         combo={combo}
