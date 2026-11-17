@@ -24,7 +24,13 @@ function LoginPage() {
   const search = Route.useSearch();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState<string | null>(search.erro === "acesso" ? "Esta conta não tem acesso administrativo." : null);
+  const [erro, setErro] = useState<string | null>(
+    search.erro === "acesso"
+      ? "Esta conta não tem acesso administrativo."
+      : search.erro === "configuracao"
+        ? "O banco do cardápio ainda não está configurado. Execute a migration no Supabase e tente novamente."
+        : null,
+  );
   const [enviando, setEnviando] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
@@ -40,7 +46,11 @@ function LoginPage() {
       const acesso = await verificarAcessoAdmin();
       if (!acesso.admin) {
         await sair();
-        setErro("Esta conta não tem permissão de administrador. Fale com o responsável pelo estabelecimento.");
+        setErro(
+          acesso.erroConfiguracao
+            ? "O banco do cardápio ainda não está configurado. Execute a migration no Supabase e tente novamente."
+            : "Esta conta não tem permissão de administrador. Fale com o responsável pelo estabelecimento.",
+        );
         return;
       }
       toast.success("Bem-vindo de volta!");

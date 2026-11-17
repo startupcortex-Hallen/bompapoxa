@@ -8,7 +8,11 @@ export const Route = createFileRoute("/_authenticated")({
       throw redirect({ to: "/login", search: { redirect: location.pathname } });
     }
     const { data: admin, error: erroAdmin } = await supabase.rpc("cardapio_exemplo_e_admin");
-    if (erroAdmin || !admin) {
+    if (erroAdmin) {
+      await supabase.auth.signOut();
+      throw redirect({ to: "/login", search: { erro: "configuracao" } });
+    }
+    if (!admin) {
       await supabase.auth.signOut();
       throw redirect({ to: "/login", search: { erro: "acesso" } });
     }
