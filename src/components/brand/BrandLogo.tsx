@@ -26,8 +26,8 @@ export function BrandLogo({
     <span className={cn("inline-flex flex-col leading-none", className)} aria-label={nome}>
       <span
         className={cn(
-          "font-display font-semibold tracking-[-0.035em] text-foreground",
-          compacto ? "text-xl" : "text-2xl sm:text-[1.7rem]",
+          "font-display font-normal uppercase tracking-[0.04em] text-foreground",
+          compacto ? "text-2xl" : "text-3xl sm:text-[2.1rem]",
         )}
       >
         {nome}

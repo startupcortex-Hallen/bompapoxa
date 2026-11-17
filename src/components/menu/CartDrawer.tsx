@@ -330,7 +330,7 @@ export function CartDrawer({
   const titulo = etapa === "sucesso" ? "Pedido confirmado" : etapa === "dados" ? "Finalizar pedido" : "Sua sacola";
 
   return (
-    <Drawer aberto={aberto} aoFechar={fechar} titulo={titulo} largura="sm:max-w-lg" conteudoRolavel={false}>
+    <Drawer aberto={aberto} aoFechar={fechar} titulo={titulo} largura="sm:max-w-lg" conteudoRolavel={false} className="theme-cinema">
       <div className="flex min-h-0 flex-col sm:h-full">
         {etapa === "sacola" ? (
           <>
@@ -603,7 +603,7 @@ export function CartDrawer({
                   ) : null}
                   <div className="flex justify-between border-t border-border pt-2 text-base font-semibold text-foreground">
                     <span>Total</span>
-                    <span>{moedaBRL(total)}</span>
+                    <span className="text-primary">{moedaBRL(total)}</span>
                   </div>
                 </div>
                 {form.modalidade === "delivery" && config.frete_gratis_acima_de !== null ? (
@@ -615,7 +615,7 @@ export function CartDrawer({
             </div>
 
             <div className="shrink-0 border-t border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-              <Button className="w-full" size="lg" carregando={enviando} onClick={finalizar} disabled={!podePedir}>
+              <Button className="w-full uppercase tracking-[0.12em]" size="lg" carregando={enviando} onClick={finalizar} disabled={!podePedir}>
                 {enviando ? "Enviando pedido…" : `Confirmar pedido • ${moedaBRL(total)}`}
               </Button>
               <p className="mt-2 text-center text-[11px] text-muted-foreground">

@@ -37,7 +37,7 @@ export function Modal({
   if (!aberto) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-6" onMouseDown={(event) => event.target === event.currentTarget && aoFechar()}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-0 backdrop-blur-md sm:items-center sm:p-6" onMouseDown={(event) => event.target === event.currentTarget && aoFechar()}>
       <div
         role="dialog"
         aria-modal="true"
@@ -78,6 +78,7 @@ export function Drawer({
   children,
   largura = "sm:max-w-md",
   conteudoRolavel = true,
+  className,
 }: {
   aberto: boolean;
   aoFechar: () => void;
@@ -85,6 +86,7 @@ export function Drawer({
   children: ReactNode;
   largura?: string;
   conteudoRolavel?: boolean;
+  className?: string;
 }) {
   useEffect(() => {
     if (!aberto) return;
@@ -103,7 +105,7 @@ export function Drawer({
   if (!aberto) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex justify-end bg-black/45 backdrop-blur-[2px]" onMouseDown={(event) => event.target === event.currentTarget && aoFechar()}>
+    <div className="fixed inset-0 z-[80] flex justify-end bg-black/70 backdrop-blur-md" onMouseDown={(event) => event.target === event.currentTarget && aoFechar()}>
       <div
         role="dialog"
         aria-modal="true"
@@ -112,6 +114,7 @@ export function Drawer({
           "flex h-full min-h-0 w-full flex-col border-l border-border bg-card shadow-2xl",
           "max-sm:h-auto max-sm:max-h-full max-sm:self-end max-sm:rounded-t-2xl max-sm:border-l-0 max-sm:border-t",
           largura,
+          className,
         )}
       >
         <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">

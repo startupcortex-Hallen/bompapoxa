@@ -1,7 +1,7 @@
 -- REMOVE OS DADOS DE DEMONSTRAÇÃO DO BOM PA POXA
 -- Execute no SQL Editor do Supabase ou pela Management API.
 -- As imagens de demonstração ficam no bucket cardapio-exemplo-imagens;
--- remova manualmente as pastas/arquivos demo-* pelo Storage ou pela API.
+-- remova manualmente os objetos das pastas produtos/, combos/ e banners/ pelo Storage ou pela API.
 
 delete from public.cardapio_exemplo_combos
 where id::text like 'f0000000-%';

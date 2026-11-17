@@ -133,17 +133,18 @@ export function ProdutoModal({
   };
 
   return (
-    <Modal aberto={aberto} aoFechar={aoFechar} titulo={produto.nome} largura="max-w-3xl">
+    <Modal aberto={aberto} aoFechar={aoFechar} titulo={produto.nome} largura="max-w-3xl" className="theme-cinema">
       <div className="grid gap-6 md:grid-cols-[1fr_1.1fr]">
         <div>
-          <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-secondary">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b]">
             {imagem ? (
               <img src={imagem} alt={produto.nome} className="h-full w-full object-cover" />
             ) : (
               <ImagemProduto url={null} nome={produto.nome} />
             )}
-            <div className="absolute left-3 top-3 z-10 rounded-full border border-white/50 bg-background/90 px-3 py-1.5 backdrop-blur">
-              <BrandLogo nome={nomeEstabelecimento ?? "BOM PA POXA"} logoUrl={logoUrl} compacto />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+            <div className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/45 px-3 py-1.5 backdrop-blur">
+              <BrandLogo nome={nomeEstabelecimento ?? "BOM PA POXA"} logoUrl={logoUrl} compacto className="[&>span]:text-lg" />
             </div>
             {imagens.length > 1 ? (
               <>
@@ -225,7 +226,7 @@ export function ProdutoModal({
           </p>
 
           <div className="mt-4">
-            <Preco produto={produto} tamanho="lg" />
+            <Preco produto={produto} tamanho="lg" className="text-primary" />
           </div>
 
           {produto.ingredientes.length ? (
@@ -238,7 +239,7 @@ export function ProdutoModal({
           {grupos.length ? (
             <div className="mt-5 space-y-4">
               {grupos.map((grupo) => (
-                <div key={grupo.nome} className="rounded-xl border border-border p-3.5">
+                <div key={grupo.nome} className="rounded-xl border border-white/10 bg-black/20 p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">{grupo.nome}</p>
@@ -259,7 +260,7 @@ export function ProdutoModal({
                           onClick={() => alternar(adicional)}
                           className={cn(
                             "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition",
-                            marcado ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/50",
+                            marcado ? "border-primary/70 bg-primary/10" : "border-white/10 bg-black/20 hover:border-gold/30",
                           )}
                         >
                           <span className="flex min-w-0 items-center gap-2">
@@ -307,7 +308,7 @@ export function ProdutoModal({
 
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Quantidade valor={quantidade} onChange={setQuantidade} max={30} />
-            <Button onClick={adicionar} disabled={!produto.disponivel || bloqueado} className="flex-1 sm:flex-none">
+            <Button onClick={adicionar} disabled={!produto.disponivel || bloqueado} className="flex-1 uppercase tracking-[0.14em] sm:flex-none">
               Adicionar • {moedaBRL(total)}
             </Button>
           </div>

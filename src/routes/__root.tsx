@@ -75,7 +75,7 @@ function Raiz() {
   return (
     <>
       <Outlet />
-      <Toaster position="top-center" richColors closeButton toastOptions={{ duration: 3500 }} />
+      <Toaster position="top-center" theme="dark" richColors closeButton toastOptions={{ duration: 3500 }} />
     </>
   );
 }

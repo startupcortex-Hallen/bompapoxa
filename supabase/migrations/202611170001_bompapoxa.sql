@@ -62,7 +62,7 @@ create table if not exists public.cardapio_exemplo_configuracoes (
   cor_destaque text not null default '#E8A33D' check (cor_destaque ~ '^#[0-9A-Fa-f]{6}$'),
   cor_fundo text not null default '#FAF5EC' check (cor_fundo ~ '^#[0-9A-Fa-f]{6}$'),
   cor_texto text not null default '#2A1710' check (cor_texto ~ '^#[0-9A-Fa-f]{6}$'),
-  tipografia text not null default 'fraunces_figtree' check (tipografia in ('fraunces_figtree', 'bricolage_figtree', 'playfair_dm')),
+  tipografia text not null default 'fraunces_figtree' check (tipografia in ('fraunces_figtree', 'bricolage_figtree', 'playfair_dm', 'bebas_figtree')),
   aceita_delivery boolean not null default true,
   aceita_retirada boolean not null default true,
   taxa_entrega numeric(10,2) not null default 0 check (taxa_entrega >= 0),

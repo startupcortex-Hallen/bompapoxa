@@ -43,9 +43,9 @@ export function ComboModal({
   const total = combo.preco * quantidade;
 
   return (
-    <Modal aberto={aberto} aoFechar={aoFechar} titulo={combo.nome} largura="max-w-2xl">
+    <Modal aberto={aberto} aoFechar={aoFechar} titulo={combo.nome} largura="max-w-2xl" className="theme-cinema">
       <div className="grid gap-6 sm:grid-cols-[1fr_1fr]">
-        <div className="aspect-[4/3] overflow-hidden rounded-xl bg-secondary">
+        <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b0b]">
           <ImagemProduto url={combo.imagem_url} nome={combo.nome} />
         </div>
         <div>
@@ -56,10 +56,10 @@ export function ComboModal({
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             {combo.descricao || "Um combo especial preparado para você."}
           </p>
-          <p className="mt-4 text-2xl font-semibold">{moedaBRL(combo.preco)}</p>
+          <p className="mt-4 text-2xl font-semibold text-primary">{moedaBRL(combo.preco)}</p>
 
           {combo.itens.length ? (
-            <div className="mt-4 rounded-xl border border-border p-3.5">
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3.5">
               <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <Package className="h-3.5 w-3.5" /> Inclui
               </p>
@@ -89,6 +89,7 @@ export function ComboModal({
             <Quantidade valor={quantidade} onChange={setQuantidade} max={20} />
             <Button
               disabled={!combo.disponivel || bloqueado}
+              className="uppercase tracking-[0.14em]"
               onClick={() => {
                 aoAdicionar({
                   comboId: combo.id,

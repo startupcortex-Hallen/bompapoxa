@@ -17,7 +17,7 @@ const PIN = L.divIcon({
   className: "",
   iconSize: [30, 30],
   iconAnchor: [15, 30],
-  html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;background:#b23a2a;border:3px solid #fff;transform:rotate(-45deg);box-shadow:0 3px 10px rgba(0,0,0,.35)"><div style="width:8px;height:8px;border-radius:50%;background:#fff;margin:7px auto 0;transform:rotate(45deg)"></div></div>',
+  html: '<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;background:#e50914;border:3px solid #fff;transform:rotate(-45deg);box-shadow:0 3px 14px rgba(0,0,0,.45)"><div style="width:8px;height:8px;border-radius:50%;background:#fff;margin:7px auto 0;transform:rotate(45deg)"></div></div>',
 });
 
 export function MapaEndereco({

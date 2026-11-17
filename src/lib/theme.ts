@@ -16,6 +16,11 @@ export const FONTES = {
     display: '"Playfair Display", Georgia, serif',
     sans: '"DM Sans", system-ui, sans-serif',
   },
+  bebas_figtree: {
+    rotulo: "Bebas Neue + Figtree",
+    display: '"Bebas Neue", Impact, sans-serif',
+    sans: '"Figtree", system-ui, sans-serif',
+  },
 } as const;
 
 export type Tipografia = keyof typeof FONTES;
@@ -26,6 +31,7 @@ export const PALETAS = [
   { nome: "Verde folha", primaria: "#2F6B4F", secundaria: "#E2EBDD", destaque: "#D4A72C", fundo: "#F7F6EE", texto: "#17251C" },
   { nome: "Vinho", primaria: "#7C2D3E", secundaria: "#F0DFE2", destaque: "#C99A42", fundo: "#FBF4F3", texto: "#2C151A" },
   { nome: "Noite", primaria: "#D96B3B", secundaria: "#2C2622", destaque: "#EFB64B", fundo: "#1C1917", texto: "#F8F1E7" },
+  { nome: "Cinema", primaria: "#E50914", secundaria: "#141414", destaque: "#D6A65C", fundo: "#090909", texto: "#FFFFFF" },
 ] as const;
 
 export function validarHex(cor: string): boolean {
@@ -68,6 +74,10 @@ export function estiloTema(configuracoes: {
     "--app-accent-foreground": textoSobre(destaque),
     "--app-background": fundo,
     "--app-foreground": texto,
+    "--app-card": `color-mix(in srgb, ${fundo} 94%, ${texto})`,
+    "--app-muted": `color-mix(in srgb, ${fundo} 90%, ${texto})`,
+    "--app-muted-foreground": `color-mix(in srgb, ${texto} 64%, ${fundo})`,
+    "--app-border": `color-mix(in srgb, ${texto} 14%, ${fundo})`,
     "--app-font-display": fonte.display,
     "--app-font-sans": fonte.sans,
   } as CSSProperties;

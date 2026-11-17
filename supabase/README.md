@@ -27,8 +27,7 @@ Para reaplicar em outro projeto ou recuperar o ambiente:
 
 1. Abra o projeto no Supabase.
 2. Vá em **SQL Editor**.
-3. Execute `supabase/migrations/202611170001_bompapoxa.sql` e, em seguida,
-   `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql`.
+3. Execute `supabase/migrations/202611170001_bompapoxa.sql`, `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql` e `supabase/migrations/202611170003_bompapoxa_tipografia_cinema.sql`.
 5. Confira em **Table Editor** as tabelas `cardapio_exemplo_*`.
 6. Confira em **Storage** o bucket `cardapio-exemplo-imagens`.
 7. Confira em **Database > Policies** as políticas prefixadas.
@@ -62,16 +61,16 @@ para `cliente` ou excluir o perfil.
 ## Dados de demonstração
 
 O ambiente publicado usa o arquivo [`seed-demo.sql`](seed-demo.sql) para criar um cardápio
-ilustrativo:
+demonstrativo de hamburgueria:
 
-- 10 produtos com imagem principal + 2 imagens de detalhe cada, 8 adicionais, 2 combos, banner, cupom `DEMO10` e horários provisórios.
-- Imagens com o selo "IMAGEM ILUSTRATIVA • DEMONSTRAÇÃO", sem fotos reais de produtos.
+- 12 produtos com imagem principal + 2 imagens de detalhe cada, distribuídos em 5 categorias, 8 adicionais, 2 combos, banner, cupom `DEMO10` e horários provisórios.
+- Fotografias reais de alimentos com licenças livres para uso comercial, sem marcas d'água, textos ou logos. Créditos no [`README`](../README.md#créditos-das-imagens).
 - Logo mantida no fallback tipográfico até o envio da arte oficial.
-- Configuração de status forçada para "aberto" e textos indicando demonstração.
+- Configuração de status forçada para "aberto" para a demonstração.
 
 Para remover o conjunto e cadastrar os dados reais, execute [`cleanup-demo.sql`](cleanup-demo.sql)
-e depois apague as imagens `demo-*` no bucket `cardapio-exemplo-imagens`. A limpeza não remove o
-administrador.
+e depois apague as imagens demonstrativas das pastas `produtos/`, `combos/` e `banners/` no bucket
+`cardapio-exemplo-imagens`. A limpeza não remove o administrador.
 
 ## Configuração de autenticação
 
@@ -166,6 +165,6 @@ Validação live no projeto Supabase real:
 - Trocar a senha do administrador inicial em **Minha conta > Segurança**.
 - Alterar o e-mail do administrador inicial em **Authentication > Users** no Supabase.
 - Configurar as URLs de autenticação.
-- Substituir o conjunto de demonstração por logo, capa, fotos, produtos, adicionais, combos, banners, cupons e horários reais. Use `cleanup-demo.sql` e remova as imagens `demo-*` do Storage.
+- Substituir o conjunto de demonstração por logo, capa, fotos, produtos, adicionais, combos, banners, cupons e horários reais. Use `cleanup-demo.sql` e remova as imagens demonstrativas das pastas `produtos/`, `combos/` e `banners/` do Storage.
 - Se desejar tempo real, habilitar a publicação Realtime das tabelas `cardapio_exemplo_pedidos` e `cardapio_exemplo_historico_pedidos` no painel; o frontend usa polling a cada 15 segundos por padrão.
 - Revogar ou rotacionar o Personal Access Token usado no provisionamento, pois ele foi compartilhado na conversa e não foi gravado no repositório.
