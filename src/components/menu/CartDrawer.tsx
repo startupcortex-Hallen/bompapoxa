@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
   Copy,
+  ExternalLink,
   MapPin,
   MessageCircle,
   MessageSquare,
   LoaderCircle,
   Plus,
   QrCode,
+  RefreshCw,
   ShoppingBag,
   Store,
   Ticket,
@@ -20,8 +23,15 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/modal";
 import { Input, Select, Textarea } from "@/components/ui/form";
-import { EstadoVazio } from "@/components/ui/feedback";
+import { Badge, EstadoVazio } from "@/components/ui/feedback";
 import { fazerPedido, validarCupom } from "@/lib/api";
+import { pagamentoPublicoQuery } from "@/lib/queries";
+import { iniciarPagamentoOnline, sincronizarPagamentoOnline } from "@/lib/online-payments";
+import {
+  PAGAMENTO_STATUS_DESCRICAO,
+  PAGAMENTO_STATUS_LABEL,
+  pagamentoStatusCor,
+} from "@/lib/payment-status";
 import { formatarTelefone, moedaBRL, somenteDigitos } from "@/lib/format";
 import {
   buscarCep,
@@ -31,7 +41,15 @@ import {
   type EnderecoGeocodificado,
 } from "@/lib/geocoding";
 import { MODALIDADE_LABEL } from "@/lib/order-status";
-import type { Configuracoes, FormaPagamento, Modalidade, Produto, ResultadoPedido } from "@/lib/types";
+import type {
+  Configuracoes,
+  FormaPagamento,
+  Modalidade,
+  Pagamento,
+  PagamentoPublico,
+  Produto,
+  ResultadoPedido,
+} from "@/lib/types";
 import { paraPayload, type ItemCarrinho } from "@/lib/cart";
 import { salvarUltimoPedido } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
@@ -48,29 +66,51 @@ const PIX_RECEBEDOR = {
   tipo: "Telefone",
 } as const;
 
-type PagamentoCheckout = "pix" | "dinheiro" | "cartao_credito" | "cartao_debito";
+type PagamentoCheckout =
+  | "pix"
+  | "dinheiro"
+  | "cartao_credito"
+  | "cartao_debito"
+  | "pix_online"
+  | "cartao_online";
 
 const PAGAMENTO_LABEL: Record<PagamentoCheckout, string> = {
-  pix: "PIX (antecipado)",
+  pix_online: "PIX online (Mercado Pago)",
+  cartao_online: "Cartão online (Mercado Pago)",
+  pix: "PIX manual (comprovante)",
   dinheiro: "Dinheiro",
   cartao_credito: "Cartão de crédito (máquina)",
   cartao_debito: "Cartão de débito (máquina)",
 };
 
-function opcoesPagamento(formas: string[]): PagamentoCheckout[] {
+function opcoesPagamento(formas: string[], online?: PagamentoPublico): PagamentoCheckout[] {
   const opcoes: PagamentoCheckout[] = [];
+  if (online?.pix_online) opcoes.push("pix_online");
+  if (online?.cartao_online) opcoes.push("cartao_online");
   if (formas.includes("pix")) opcoes.push("pix");
   if (formas.includes("cartao")) opcoes.push("cartao_credito", "cartao_debito");
   if (formas.includes("dinheiro")) opcoes.push("dinheiro");
   return opcoes;
 }
 
-function formaInicial(formas: string[]): PagamentoCheckout {
-  return opcoesPagamento(formas)[0] ?? "pix";
+function formaInicial(formas: string[], online?: PagamentoPublico): PagamentoCheckout {
+  return opcoesPagamento(formas, online)[0] ?? "pix";
 }
 
 function formaParaApi(forma: PagamentoCheckout): FormaPagamento {
+  if (forma === "pix_online") return "pix";
+  if (forma === "cartao_online") return "cartao";
   return forma === "cartao_credito" || forma === "cartao_debito" ? "cartao" : forma;
+}
+
+function formaOnline(forma: PagamentoCheckout): "pix" | "cartao" | null {
+  if (forma === "pix_online") return "pix";
+  if (forma === "cartao_online") return "cartao";
+  return null;
+}
+
+function emailValido(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 function urlWhatsApp(mensagem: string): string {
@@ -134,7 +174,10 @@ function montarMensagemPedido({
       ? ` (troco para ${moedaBRL(Number(form.trocoPara.replace(",", ".")))})`
       : "";
   const pagamento = `${PAGAMENTO_LABEL[form.formaPagamento]}${troco}`;
-  const notaPix = form.formaPagamento === "pix" ? "\n\nPagamento PIX: anexarei o comprovante nesta conversa." : "";
+  const notaPix = form.formaPagamento === "pix" ? "\n\nPagamento PIX manual: anexarei o comprovante nesta conversa." : "";
+  const notaOnline = formaOnline(form.formaPagamento)
+    ? "\n\nPagamento online via Mercado Pago. A confirmação depende do retorno oficial do gateway."
+    : "";
   const observacoes = form.observacoes.trim() ? `\n\nObservações gerais:\n${form.observacoes.trim()}` : "";
   const desconto = resultado.desconto > 0 ? `Desconto: - ${moedaBRL(resultado.desconto)}\n` : "";
 
@@ -154,7 +197,7 @@ Taxa de entrega: ${moedaBRL(resultado.taxa_entrega)}
 ${desconto}Total: ${moedaBRL(resultado.total)}
 
 Forma de pagamento: ${pagamento}
-Modalidade: ${form.modalidade === "delivery" ? "Entrega" : "Retirada"}${notaPix}`;
+Modalidade: ${form.modalidade === "delivery" ? "Entrega" : "Retirada"}${notaPix}${notaOnline}`;
 }
 
 function montarMensagemComprovante(form: Formulario, resultado: ResultadoPedido): string {
@@ -188,10 +231,15 @@ export function CartDrawer({
   aoAdicionarSugestao: (produto: Produto) => void;
   aoAbrirSugestao: (produto: Produto) => void;
 }) {
+  const { data: pagamentoConfig } = useQuery(pagamentoPublicoQuery);
   const [etapa, setEtapa] = useState<Etapa>("sacola");
   const [resultado, setResultado] = useState<ResultadoPedido | null>(null);
   const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
   const [whatsappComprovanteUrl, setWhatsappComprovanteUrl] = useState<string | null>(null);
+  const [pagamentoOnline, setPagamentoOnline] = useState<Pagamento | null>(null);
+  const [checkoutOnlineUrl, setCheckoutOnlineUrl] = useState<string | null>(null);
+  const [erroPagamentoOnline, setErroPagamentoOnline] = useState<string | null>(null);
+  const [sincronizandoPagamento, setSincronizandoPagamento] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [cupomCodigo, setCupomCodigo] = useState("");
@@ -222,14 +270,14 @@ export function CartDrawer({
   }));
 
   useEffect(() => {
-    const opcoes = opcoesPagamento(config.formas_pagamento);
+    const opcoes = opcoesPagamento(config.formas_pagamento, pagamentoConfig);
     setForm((atual) => ({
       ...atual,
       modalidade: config.aceita_delivery ? atual.modalidade : "retirada",
       formaPagamento: opcoes.includes(atual.formaPagamento) ? atual.formaPagamento : (opcoes[0] ?? "pix"),
       cidade: atual.cidade || config.cidade || "",
     }));
-  }, [config.aceita_delivery, config.formas_pagamento, config.cidade]);
+  }, [config.aceita_delivery, config.formas_pagamento, config.cidade, pagamentoConfig]);
 
   useEffect(() => {
     if (cupomMensagem?.valido && subtotalCupom !== null && subtotal !== subtotalCupom) {
@@ -312,7 +360,7 @@ export function CartDrawer({
   const total = Math.max(0, Math.round((subtotal + taxa - desconto) * 100) / 100);
   const minimoOk = subtotal >= config.pedido_minimo;
   const podePedir = abertoLoja && config.aceitando_pedidos;
-  const formas = opcoesPagamento(config.formas_pagamento);
+  const formas = opcoesPagamento(config.formas_pagamento, pagamentoConfig);
 
   const set = <K extends keyof Formulario>(campo: K, valor: Formulario[K]) => {
     setForm((atual) => ({ ...atual, [campo]: valor }));
@@ -367,6 +415,11 @@ export function CartDrawer({
       setErro("Informe um telefone válido com DDD.");
       return;
     }
+    const tipoOnline = formaOnline(form.formaPagamento);
+    if (tipoOnline && !emailValido(form.email)) {
+      setErro("Informe um e-mail válido para usar o pagamento online do Mercado Pago.");
+      return;
+    }
     if (form.modalidade === "delivery" && (!form.endereco.trim() || !form.numero.trim() || !form.bairro.trim() || !form.cidade.trim())) {
       setErro("Preencha o endereço completo para entrega.");
       return;
@@ -385,6 +438,9 @@ export function CartDrawer({
     enviandoRef.current = true;
     setWhatsappUrl(null);
     setWhatsappComprovanteUrl(null);
+    setPagamentoOnline(null);
+    setCheckoutOnlineUrl(null);
+    setErroPagamentoOnline(null);
 
     let janelaWhatsApp: Window | null = null;
     try {
@@ -440,6 +496,28 @@ export function CartDrawer({
       setCupomMensagem(null);
       setSubtotalCupom(null);
       setCodigoAplicado(null);
+
+      if (tipoOnline) {
+        try {
+          const pagamento = await iniciarPagamentoOnline({
+            pedidoId: resposta.pedido_id,
+            trackingToken: resposta.tracking_token,
+            tipo: tipoOnline,
+          });
+          setPagamentoOnline(pagamento.pagamento);
+          setCheckoutOnlineUrl(pagamento.checkoutUrl ?? null);
+          if (pagamento.status === "aprovado") {
+            toast.success("Pagamento aprovado pelo Mercado Pago.");
+          }
+        } catch (erroOnline) {
+          setErroPagamentoOnline(
+            erroOnline instanceof Error
+              ? erroOnline.message
+              : "Pedido registrado, mas o pagamento online não pôde ser iniciado.",
+          );
+        }
+      }
+
       setEtapa("sucesso");
       toast.success("Pedido enviado com sucesso!");
 
@@ -467,10 +545,71 @@ export function CartDrawer({
       setResultado(null);
       setWhatsappUrl(null);
       setWhatsappComprovanteUrl(null);
+      setPagamentoOnline(null);
+      setCheckoutOnlineUrl(null);
+      setErroPagamentoOnline(null);
     }
     setEtapa("sacola");
   };
 
+  const verificarPagamentoOnline = async () => {
+    if (!resultado) return;
+    setSincronizandoPagamento(true);
+    try {
+      const resposta = await sincronizarPagamentoOnline({
+        pedidoId: resultado.pedido_id,
+        trackingToken: resultado.tracking_token,
+        forcar: true,
+      });
+      setPagamentoOnline(resposta.pagamento);
+      if (resposta.status === "aprovado") {
+        toast.success("Pagamento aprovado pelo Mercado Pago.");
+      } else if (resposta.mensagem) {
+        toast.info(resposta.mensagem);
+      } else {
+        toast.info(`Status do pagamento: ${PAGAMENTO_STATUS_LABEL[resposta.status]}.`);
+      }
+    } catch (erroSync) {
+      toast.error(erroSync instanceof Error ? erroSync.message : "Não foi possível verificar o pagamento.");
+    } finally {
+      setSincronizandoPagamento(false);
+    }
+  };
+
+  const tentarPagamentoOnlineNovamente = async () => {
+    if (!resultado) return;
+    const tipo = formaOnline(form.formaPagamento);
+    if (!tipo) return;
+    setSincronizandoPagamento(true);
+    setErroPagamentoOnline(null);
+    try {
+      const resposta = await iniciarPagamentoOnline({
+        pedidoId: resultado.pedido_id,
+        trackingToken: resultado.tracking_token,
+        tipo,
+      });
+      setPagamentoOnline(resposta.pagamento);
+      setCheckoutOnlineUrl(resposta.checkoutUrl ?? null);
+      toast.success("Pagamento online reiniciado.");
+    } catch (erroOnline) {
+      setErroPagamentoOnline(erroOnline instanceof Error ? erroOnline.message : "Não foi possível reiniciar o pagamento.");
+    } finally {
+      setSincronizandoPagamento(false);
+    }
+  };
+
+  const copiarCodigoPixOnline = async () => {
+    const codigo = pagamentoOnline?.qr_code;
+    if (!codigo) return;
+    try {
+      await navigator.clipboard.writeText(codigo);
+      toast.success("Código PIX copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o código PIX.");
+    }
+  };
+
+  const tipoOnlineAtual = formaOnline(form.formaPagamento);
   const titulo = etapa === "sucesso" ? "Pedido confirmado" : etapa === "dados" ? "Finalizar pedido" : "Sua sacola";
 
   return (
@@ -665,7 +804,14 @@ export function CartDrawer({
                   placeholder="(71) 99999-9999"
                 />
               </div>
-              <Input label="E-mail (opcional)" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} autoComplete="email" />
+              <Input
+                label={tipoOnlineAtual ? "E-mail (obrigatório no pagamento online)" : "E-mail (opcional)"}
+                type="email"
+                value={form.email}
+                onChange={(e) => set("email", e.target.value)}
+                autoComplete="email"
+                hint={tipoOnlineAtual ? "O Mercado Pago exige um e-mail válido para PIX online." : undefined}
+              />
 
               <div>
                 <p className="mb-2 text-xs font-medium text-muted-foreground">Como você quer receber?</p>
@@ -855,6 +1001,109 @@ export function CartDrawer({
               >
                 <MessageCircle className="h-4 w-4" /> Enviar pedido pelo WhatsApp
               </a>
+            ) : null}
+            {tipoOnlineAtual ? (
+              <div className="mt-4 w-full max-w-md rounded-2xl border border-white/10 bg-black/25 p-4 text-left">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge cor={pagamentoStatusCor(pagamentoOnline?.status ?? "erro")}>
+                    {pagamentoOnline ? PAGAMENTO_STATUS_LABEL[pagamentoOnline.status] : "Pagamento online"}
+                  </Badge>
+                  <span className="text-sm font-semibold text-white">{moedaBRL(resultado.total)}</span>
+                </div>
+                {erroPagamentoOnline ? (
+                  <p className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{erroPagamentoOnline}</p>
+                ) : null}
+                {pagamentoOnline ? (
+                  <>
+                    <p className="mt-2 text-xs leading-relaxed text-white/55">
+                      {PAGAMENTO_STATUS_DESCRICAO[pagamentoOnline.status]}
+                    </p>
+                    {pagamentoOnline.tipo === "pix" &&
+                    pagamentoOnline.status !== "aprovado" &&
+                    pagamentoOnline.qr_code_base64 ? (
+                      <img
+                        src={`data:image/png;base64,${pagamentoOnline.qr_code_base64}`}
+                        alt="QR Code PIX do Mercado Pago"
+                        className="mx-auto mt-3 h-44 w-44 rounded-lg bg-white p-2"
+                      />
+                    ) : null}
+                    {pagamentoOnline.tipo === "pix" && pagamentoOnline.qr_code ? (
+                      <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-white/40">PIX copia e cola</p>
+                        <p className="mt-1 break-all font-mono text-[10px] leading-relaxed text-white/70">
+                          {pagamentoOnline.qr_code}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 border-gold/30 text-gold hover:bg-gold/10"
+                          onClick={() => void copiarCodigoPixOnline()}
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Copiar código
+                        </Button>
+                      </div>
+                    ) : null}
+                    {pagamentoOnline.ticket_url ? (
+                      <a
+                        href={pagamentoOnline.ticket_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs text-gold underline decoration-current/30 underline-offset-4 hover:decoration-current"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Abrir instruções PIX
+                      </a>
+                    ) : null}
+                    {checkoutOnlineUrl && pagamentoOnline.tipo === "cartao" ? (
+                      <a
+                        href={checkoutOnlineUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={cn(buttonVariants({ variant: "primary", size: "lg" }), "mt-3 w-full uppercase tracking-[0.12em]")}
+                      >
+                        <ExternalLink className="h-4 w-4" /> Abrir checkout do Mercado Pago
+                      </a>
+                    ) : null}
+                    {pagamentoOnline.status !== "aprovado" ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          carregando={sincronizandoPagamento}
+                          onClick={() => void verificarPagamentoOnline()}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" /> Verificar pagamento
+                        </Button>
+                        {pagamentoOnline.status !== "pendente" && pagamentoOnline.status !== "em_processamento" ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            carregando={sincronizandoPagamento}
+                            onClick={() => void tentarPagamentoOnlineNovamente()}
+                          >
+                            Tentar novamente
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </>
+                ) : erroPagamentoOnline ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    carregando={sincronizandoPagamento}
+                    onClick={() => void tentarPagamentoOnlineNovamente()}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Tentar pagamento online
+                  </Button>
+                ) : (
+                  <p className="mt-2 text-xs text-white/55">Iniciando o pagamento online…</p>
+                )}
+              </div>
             ) : null}
             {form.formaPagamento === "pix" ? (
               <>

@@ -8,16 +8,23 @@ import type {
   ComboGrupo,
   ComboItem,
   ComboOpcao,
+  ConfiguracaoPagamento,
   Configuracoes,
   Cupom,
+  EventoPagamento,
   HistoricoPedido,
   Horario,
+  Impressora,
   ItemAdicional,
   ItemPedido,
+  Pagamento,
   Pedido,
   Perfil,
   Produto,
+  StatusImpressao,
+  StatusPagamento,
   StatusPedido,
+  TrabalhoImpressao,
 } from "./types";
 
 type Row = Record<string, unknown>;
@@ -255,7 +262,12 @@ export function mapHistorico(row: Row): HistoricoPedido {
   };
 }
 
-export function mapPedido(row: Row, itens: ItemPedido[], historico: HistoricoPedido[] = []): Pedido {
+export function mapPedido(
+  row: Row,
+  itens: ItemPedido[],
+  historico: HistoricoPedido[] = [],
+  pagamento: Pagamento | null = null,
+): Pedido {
   return {
     id: textoOu(row.id),
     numero: numero(row.numero),
@@ -275,7 +287,9 @@ export function mapPedido(row: Row, itens: ItemPedido[], historico: HistoricoPed
     forma_pagamento: (texto(row.forma_pagamento) as Pedido["forma_pagamento"]) ?? "pix",
     troco_para: row.troco_para == null ? null : numero(row.troco_para),
     status: (texto(row.status) as StatusPedido) ?? "novo",
-    status_pagamento: (texto(row.status_pagamento) as Pedido["status_pagamento"]) ?? "pendente",
+    status_pagamento: (texto(row.status_pagamento) as StatusPagamento) ?? "pendente",
+    pagamento_provedor: (texto(row.pagamento_provedor) as Pedido["pagamento_provedor"]) ?? "manual",
+    pagamento_online_tipo: (texto(row.pagamento_online_tipo) as Pedido["pagamento_online_tipo"]) ?? null,
     subtotal: numero(row.subtotal),
     taxa_entrega: numero(row.taxa_entrega),
     desconto: numero(row.desconto),
@@ -286,6 +300,105 @@ export function mapPedido(row: Row, itens: ItemPedido[], historico: HistoricoPed
     updated_at: textoOu(row.updated_at),
     itens,
     historico,
+    pagamento,
+  };
+}
+
+export function mapPagamento(row: Row): Pagamento {
+  return {
+    id: textoOu(row.id),
+    pedido_id: textoOu(row.pedido_id),
+    provedor: "mercadopago",
+    ambiente: (texto(row.ambiente) as Pagamento["ambiente"]) ?? "sandbox",
+    tipo: (texto(row.tipo) as Pagamento["tipo"]) ?? "pix",
+    status: (texto(row.status) as Pagamento["status"]) ?? "pendente",
+    status_mp: texto(row.status_mp),
+    metodo: texto(row.metodo),
+    valor: numero(row.valor),
+    moeda: textoOu(row.moeda, "BRL"),
+    mp_order_id: texto(row.mp_order_id),
+    mp_payment_id: texto(row.mp_payment_id),
+    mp_preference_id: texto(row.mp_preference_id),
+    mp_external_reference: textoOu(row.mp_external_reference),
+    qr_code: texto(row.qr_code),
+    qr_code_base64: texto(row.qr_code_base64),
+    ticket_url: texto(row.ticket_url),
+    init_point: texto(row.init_point),
+    sandbox_init_point: texto(row.sandbox_init_point),
+    ultimo_erro: texto(row.ultimo_erro),
+    aprovado_em: texto(row.aprovado_em),
+    expirado_em: texto(row.expirado_em),
+    sincronizado_em: texto(row.sincronizado_em),
+    created_at: textoOu(row.created_at),
+    updated_at: textoOu(row.updated_at),
+  };
+}
+
+export function mapEventoPagamento(row: Row): EventoPagamento {
+  return {
+    id: textoOu(row.id),
+    pagamento_id: texto(row.pagamento_id),
+    pedido_id: texto(row.pedido_id),
+    origem: (texto(row.origem) as EventoPagamento["origem"]) ?? "sincronizacao",
+    evento: textoOu(row.evento),
+    status_anterior: texto(row.status_anterior),
+    status_novo: texto(row.status_novo),
+    detalhe: row.detalhe && typeof row.detalhe === "object" ? (row.detalhe as Record<string, unknown>) : {},
+    created_at: textoOu(row.created_at),
+  };
+}
+
+export function mapConfiguracaoPagamento(row: Row): ConfiguracaoPagamento {
+  return {
+    id: numero(row.id),
+    mercadopago_ativo: row.mercadopago_ativo === true,
+    pix_online_ativo: row.pix_online_ativo === true,
+    cartao_online_ativo: row.cartao_online_ativo === true,
+    ultimo_teste_ok: row.ultimo_teste_ok === true,
+    ultimo_teste_em: texto(row.ultimo_teste_em),
+    ultimo_teste_ambiente: texto(row.ultimo_teste_ambiente),
+    ultimo_teste_mensagem: texto(row.ultimo_teste_mensagem),
+    created_at: textoOu(row.created_at),
+    updated_at: textoOu(row.updated_at),
+  };
+}
+
+export function mapImpressora(row: Row): Impressora {
+  const largura = numero(row.largura_mm);
+  return {
+    id: textoOu(row.id),
+    nome: textoOu(row.nome),
+    setor: textoOu(row.setor, "principal"),
+    largura_mm: largura === 58 ? 58 : 80,
+    ativo: row.ativo !== false,
+    ultimo_ping_em: texto(row.ultimo_ping_em),
+    ultimo_info: row.ultimo_info && typeof row.ultimo_info === "object" ? (row.ultimo_info as Record<string, unknown>) : {},
+    created_at: textoOu(row.created_at),
+    updated_at: textoOu(row.updated_at),
+  };
+}
+
+export function mapTrabalhoImpressao(row: Row): TrabalhoImpressao {
+  const largura = numero(row.largura_mm);
+  return {
+    id: textoOu(row.id),
+    pedido_id: texto(row.pedido_id),
+    impressora_id: texto(row.impressora_id),
+    tipo: (texto(row.tipo) as TrabalhoImpressao["tipo"]) ?? "pedido",
+    setor: textoOu(row.setor, "principal"),
+    job_key: textoOu(row.job_key),
+    status: (texto(row.status) as StatusImpressao) ?? "pendente",
+    largura_mm: largura === 58 || largura === 80 ? largura : null,
+    payload: row.payload && typeof row.payload === "object" ? (row.payload as Record<string, unknown>) : {},
+    tentativas: numero(row.tentativas),
+    erro: texto(row.erro),
+    reimpressao: row.reimpressao === true,
+    solicitado_por: texto(row.solicitado_por),
+    created_at: textoOu(row.created_at),
+    processing_at: texto(row.processing_at),
+    completed_at: texto(row.completed_at),
+    pedido_numero: row.pedido_numero == null ? null : numero(row.pedido_numero),
+    impressora_nome: texto(row.impressora_nome),
   };
 }
 

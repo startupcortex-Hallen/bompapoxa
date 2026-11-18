@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 
-const migration = fs.readFileSync("supabase/migrations/202611170001_bompapoxa.sql", "utf8");
-const migrationCombos = fs.readFileSync("supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql", "utf8");
+const migrations = [
+  "supabase/migrations/202611170001_bompapoxa.sql",
+  "supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql",
+  "supabase/migrations/202611170003_bompapoxa_tipografia_cinema.sql",
+  "supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql",
+  "supabase/migrations/202611180001_bompapoxa_pagamentos_impressao.sql",
+];
 const db = new PGlite();
 
 const stubs = `
@@ -48,8 +53,9 @@ alter table storage.objects enable row level security;
 `;
 
 await db.exec(stubs);
-await db.exec(migration);
-await db.exec(migrationCombos);
+for (const arquivo of migrations) {
+  await db.exec(fs.readFileSync(arquivo, "utf8"));
+}
 
 const adminId = "11111111-1111-4111-8111-111111111111";
 const clientId = "22222222-2222-4222-8222-222222222222";
@@ -61,7 +67,7 @@ const tables = await db.query(`
   from information_schema.tables
   where table_schema = 'public' and table_name like 'cardapio_exemplo_%'
 `);
-assert.equal(tables.rows.length, 16, "devem existir 16 tabelas prefixadas");
+assert.equal(tables.rows.length, 22, "devem existir 22 tabelas prefixadas");
 
 const settings = await db.query("select nome_estabelecimento, status_abertura from public.cardapio_exemplo_configuracoes");
 assert.equal(settings.rows[0].nome_estabelecimento, "BOM PA POXA");
@@ -290,5 +296,172 @@ assert.equal(await upload("authenticated", adminId), "permitido");
 assert.equal(await contar("cardapio_exemplo_pedidos", "authenticated", clientId), 0);
 assert.equal(await contar("cardapio_exemplo_pedidos", "authenticated", adminId), 2);
 
+// ---------------------------------------------------------------------------
+// Pagamentos online e impressão
+// ---------------------------------------------------------------------------
+
+const filaInicial = await db.query(
+  "select count(*)::int as total from public.cardapio_exemplo_fila_impressao where pedido_id = $1",
+  [criado.pedido_id],
+);
+assert.equal(filaInicial.rows[0].total, 1, "pedido deve entrar automaticamente na fila de impressão");
+
+const jobAutomatico = await db.query(
+  "select id, job_key, status, payload from public.cardapio_exemplo_fila_impressao where pedido_id = $1",
+  [criado.pedido_id],
+);
+assert.equal(jobAutomatico.rows[0].status, "pendente");
+assert.match(jobAutomatico.rows[0].job_key, /^pedido:.*:principal$/);
+assert.equal(jobAutomatico.rows[0].payload.itens.length, 1);
+assert.equal(jobAutomatico.rows[0].payload.itens[0].adicionais[0].nome, "Farofa extra");
+
+const pagamentoPublicoInicial = await as("anon", null, async () => {
+  const resposta = await db.query("select public.cardapio_exemplo_pagamento_publico() as config");
+  return resposta.rows[0].config;
+});
+assert.equal(pagamentoPublicoInicial.mercadopago_ativo, false);
+assert.equal(pagamentoPublicoInicial.pix_online, false);
+
+const impressora = await as("authenticated", adminId, async () => {
+  const resposta = await db.query(
+    "select public.cardapio_exemplo_criar_impressora('Impressora teste', 80, 'principal') as dados",
+  );
+  return resposta.rows[0].dados;
+});
+assert.ok(impressora.token, "criação da impressora deve retornar token uma única vez");
+assert.equal(impressora.largura_mm, 80);
+
+const tokenInvalido = await as("anon", null, async () => {
+  try {
+    await db.query("select * from public.cardapio_exemplo_agente_claim_jobs('token-invalido', 5)");
+    return "permitido";
+  } catch (erro) {
+    return `negado:${erro.code}`;
+  }
+});
+assert.match(tokenInvalido, /^negado:/, "token inválido não pode retirar trabalhos");
+
+const trabalhos = await as("anon", null, async () => {
+  const resposta = await db.query("select * from public.cardapio_exemplo_agente_claim_jobs($1, 5)", [impressora.token]);
+  return resposta.rows;
+});
+assert.ok(trabalhos.length >= 2, "agente deve retirar os trabalhos pendentes");
+assert.equal(trabalhos[0].status, undefined);
+assert.equal(trabalhos[0].largura_mm, 80);
+
+const primeiroJob = trabalhos.find((job) => job.pedido_id === criado.pedido_id);
+assert.ok(primeiroJob, "trabalho do pedido principal deve estar na fila");
+
+await as("anon", null, async () => {
+  await db.query(
+    "select public.cardapio_exemplo_agente_concluir($1, $2, true, null)",
+    [impressora.token, primeiroJob.id],
+  );
+});
+
+const jobImpresso = await db.query(
+  "select status, completed_at, tentativas from public.cardapio_exemplo_fila_impressao where id = $1",
+  [primeiroJob.id],
+);
+assert.equal(jobImpresso.rows[0].status, "impresso");
+assert.ok(jobImpresso.rows[0].completed_at);
+assert.equal(jobImpresso.rows[0].tentativas, 1);
+
+const reimpressao = await as("authenticated", adminId, async () => {
+  const resposta = await db.query("select public.cardapio_exemplo_enfileirar_reimpressao($1) as id", [criado.pedido_id]);
+  return resposta.rows[0].id;
+});
+assert.ok(reimpressao);
+const jobReimpresso = await db.query(
+  "select reimpressao, solicitado_por, status from public.cardapio_exemplo_fila_impressao where id = $1",
+  [reimpressao],
+);
+assert.equal(jobReimpresso.rows[0].reimpressao, true);
+assert.equal(jobReimpresso.rows[0].solicitado_por, adminId);
+assert.equal(jobReimpresso.rows[0].status, "pendente");
+
+const jobTeste = await as("authenticated", adminId, async () => {
+  const resposta = await db.query("select public.cardapio_exemplo_enfileirar_teste($1) as id", [impressora.id]);
+  return resposta.rows[0].id;
+});
+const jobTesteRow = await db.query(
+  "select tipo, payload from public.cardapio_exemplo_fila_impressao where id = $1",
+  [jobTeste],
+);
+assert.equal(jobTesteRow.rows[0].tipo, "teste");
+assert.equal(jobTesteRow.rows[0].payload.teste, true);
+
+const inserirFilaCliente = await as("authenticated", clientId, async () => {
+  try {
+    await db.exec(
+      `insert into public.cardapio_exemplo_fila_impressao (job_key, payload) values ('cliente:${today}', '{}'::jsonb)`,
+    );
+    return "permitido";
+  } catch (erro) {
+    return `negado:${erro.code}`;
+  }
+});
+assert.match(inserirFilaCliente, /^negado:/, "cliente não pode inserir trabalho de impressão arbitrário");
+
+await db.exec(`
+  insert into public.cardapio_exemplo_pagamentos
+    (pedido_id, ambiente, tipo, status, status_mp, metodo, valor, mp_order_id, mp_payment_id,
+     mp_external_reference, idempotency_key, qr_code, qr_code_base64)
+  values
+    ('${criado.pedido_id}', 'sandbox', 'pix', 'pendente', 'action_required', 'pix', 114.12,
+     'ORD_TESTE_1', 'PAY_TESTE_1', 'bompapoxa:${criado.pedido_id}', 'idem-teste-1',
+     '00020126580014br.gov.bcb.pix', 'iVBORw0KGgoAAAANSUhEUg');
+
+  update public.cardapio_exemplo_pagamentos
+  set status = 'aprovado', status_mp = 'processed', aprovado_em = now()
+  where pedido_id = '${criado.pedido_id}';
+
+  update public.cardapio_exemplo_pedidos
+  set pagamento_provedor = 'mercadopago', pagamento_online_tipo = 'pix', status_pagamento = 'pago'
+  where id = '${criado.pedido_id}';
+
+  update public.cardapio_exemplo_pagamento_config
+  set mercadopago_ativo = true, pix_online_ativo = true, cartao_online_ativo = true
+  where id = 1;
+`);
+
+const consultaPagamento = await db.query(
+  "select * from public.cardapio_exemplo_get_pedido($1, $2)",
+  [criado.pedido_id, criado.tracking_token],
+);
+const payloadPagamento = typeof consultaPagamento.rows[0].cardapio_exemplo_get_pedido === "string"
+  ? JSON.parse(consultaPagamento.rows[0].cardapio_exemplo_get_pedido)
+  : consultaPagamento.rows[0].cardapio_exemplo_get_pedido;
+assert.equal(payloadPagamento.pagamento_provedor, "mercadopago");
+assert.equal(payloadPagamento.pagamento_online_tipo, "pix");
+assert.equal(payloadPagamento.pagamento.status, "aprovado");
+assert.equal(payloadPagamento.pagamento.tipo, "pix");
+assert.equal(payloadPagamento.pagamento.qr_code, "00020126580014br.gov.bcb.pix");
+
+const pagamentoPublicoAtivo = await as("anon", null, async () => {
+  const resposta = await db.query("select public.cardapio_exemplo_pagamento_publico() as config");
+  return resposta.rows[0].config;
+});
+assert.equal(pagamentoPublicoAtivo.mercadopago_ativo, true);
+assert.equal(pagamentoPublicoAtivo.pix_online, true);
+assert.equal(pagamentoPublicoAtivo.cartao_online, true);
+
+assert.match(
+  String(await contar("cardapio_exemplo_pagamentos", "anon", null)),
+  /^negado:/,
+  "visitante não pode ler pagamentos",
+);
+assert.equal(await contar("cardapio_exemplo_pagamentos", "authenticated", adminId), 1);
+
+const alterarPagamentoCliente = await as("authenticated", clientId, async () => {
+  try {
+    await db.exec(`update public.cardapio_exemplo_pagamentos set status = 'aprovado' where pedido_id = '${criado.pedido_id}'`);
+    return "permitido";
+  } catch (erro) {
+    return `negado:${erro.code}`;
+  }
+});
+assert.match(alterarPagamentoCliente, /^negado:/, "cliente não pode aprovar pagamento diretamente");
+
 await db.close();
-console.log("Validação SQL concluída: schema, pedidos, cupom, histórico e RLS aprovados.");
+console.log("Validação SQL concluída: schema, pedidos, cupom, histórico, pagamentos, impressão e RLS aprovados.");

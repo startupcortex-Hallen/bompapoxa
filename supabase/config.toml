@@ -1,0 +1,15 @@
+project_id = "tbckigurtfwpgnuhrapr"
+
+# As funções validam o JWT administrativo ou o token privado do pedido/impressora
+# dentro do próprio código. O gateway não deve exigir JWT para o webhook público.
+[functions.mercadopago-create-payment]
+verify_jwt = false
+
+[functions.mercadopago-sync-payment]
+verify_jwt = false
+
+[functions.mercadopago-webhook]
+verify_jwt = false
+
+[functions.mercadopago-admin-status]
+verify_jwt = false

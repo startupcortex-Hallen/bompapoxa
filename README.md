@@ -97,6 +97,34 @@ O cardápio público foi reestruturado como uma experiência cinematográfica in
 - QR code do cardápio para impressão.
 - Conta do administrador, redefinição de senha e logout.
 
+## Integrações preparadas (Mercado Pago + impressão)
+
+### Mercado Pago
+
+- PIX online via **Checkout Transparente / Orders API**, com QR Code e copia e cola no checkout e no acompanhamento.
+- Cartão online via **Checkout Pro**, sem dados de cartão no frontend.
+- Criação de pagamento, consulta e webhook em **Supabase Edge Functions**.
+- Webhook com validação de assinatura HMAC, reconsulta obrigatória da API oficial e idempotência.
+- Segredos somente no servidor: `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY`, `MERCADOPAGO_WEBHOOK_SECRET` e `MERCADOPAGO_ENVIRONMENT`.
+- Painel em **Admin > Pagamentos**, com ambiente, credenciais presentes/ausentes (sem valores), teste de comunicação, webhook, últimos pagamentos e eventos.
+- Pagamentos manuais preservados: dinheiro, troco, cartão na máquina, PIX manual e comprovante por WhatsApp.
+- Guia: [`docs/mercadopago.md`](docs/mercadopago.md).
+
+A integração está pronta para receber credenciais oficiais, mas **não foi homologada com pagamentos reais** neste repositório. Nenhuma credencial foi incluída e nenhum teste Sandbox real foi executado sem as chaves.
+
+### Impressão automática ESC/POS
+
+- Fila persistente `cardapio_exemplo_fila_impressao`, alimentada por trigger após a criação bem-sucedida do pedido.
+- Snapshot completo do pedido, incluindo itens, adicionais, escolhas de combo, observações, endereço, pagamento, desconto e troco.
+- Agente local Node.js em `print-agent/`, com ESC/POS para 58 mm e 80 mm, USB via driver Windows ou rede TCP 9100.
+- Agente verifica a impressora antes de retirar a fila; se estiver desligada, os trabalhos permanecem pendentes.
+- Claim com `FOR UPDATE SKIP LOCKED`, token de dispositivo com hash, `job_key` único, tentativas, erro, reprocessamento e reimpressão registrada.
+- Painel em **Admin > Impressão**, com estado online/offline, teste, fila, erros, cancelamento e reimpressão.
+- Reimpressão também disponível no detalhe do pedido.
+- Guia: [`docs/impressao.md`](docs/impressao.md).
+
+A formatação e o protocolo foram testados sem impressora física. A homologação de hardware permanece pendente até conectar o equipamento.
+
 ## Stack
 
 - React 19 + TypeScript
@@ -105,10 +133,13 @@ O cardápio público foi reestruturado como uma experiência cinematográfica in
 - Tailwind CSS 4
 - TanStack Query
 - Supabase JS (Auth, PostgREST, Storage)
-- Lucide Icons, Sonner, Framer Motion
+- Supabase Edge Functions (Deno) para Mercado Pago
+- Mercado Pago Orders API (PIX) e Checkout Pro (cartão)
+- Agente Node.js + ESC/POS para impressão térmica
+- Lucide Icons, Sonner
 - Leaflet + OpenStreetMap, Photon e ViaCEP para endereço no checkout
 - QR Code Styling
-- Vitest
+- Vitest + Node Test Runner
 
 O THAAL original usava TanStack Start com SSR. Para publicar no GitHub Pages, a aplicação foi
 convertida para SPA estática; as consultas que dependiam de server functions passaram a usar o
@@ -163,8 +194,10 @@ Scripts:
 | `npm run preview` | Pré-visualização do build |
 | `npm run typecheck` | Verificação TypeScript |
 | `npm run lint` | ESLint |
-| `npm test` | Testes unitários |
-| `npm run test:sql` | Valida a migration em PostgreSQL local (PGlite) |
+| `npm test` | Testes unitários de UI/utilidades |
+| `npm run test:integrations` | Testes do núcleo Mercado Pago (HMAC, status, payloads) e do cupom ESC/POS |
+| `npm run test:agent` | Testes de formatação do agente de impressão |
+| `npm run test:sql` | Valida as migrations em PostgreSQL local (PGlite) |
 | `npm run format` | Prettier |
 
 ## Variáveis de ambiente
@@ -190,6 +223,7 @@ o build do GitHub Pages.
   - `supabase/migrations/202611170002_bompapoxa_endereco_mapa.sql` — coordenadas de entrega e evolução das RPCs de pedido.
   - `supabase/migrations/202611170003_bompapoxa_tipografia_cinema.sql` — opção de tipografia `bebas_figtree` na configuração pública.
   - `supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql` — grupos e opções de escolha para combos configuráveis.
+  - `supabase/migrations/202611180001_bompapoxa_pagamentos_impressao.sql` — pagamentos online, eventos, webhooks, impressoras e fila de impressão.
 
 A migration não altera nem remove objetos de outros aplicativos do mesmo projeto. Ela cria
 tabelas, tipos, funções, triggers, índices, políticas RLS, bucket e dados iniciais mínimos com
@@ -249,7 +283,8 @@ o `index.html` e as URLs absolutas do README.
 
 - `npm run typecheck`
 - `npm run lint`
-- `npm test` — 22 testes unitários
+- `npm test` — 27 testes unitários
+- `npm run test:integrations` — 12 testes de núcleo Mercado Pago e formatação ESC/POS
 - `npm run test:sql` — migration executada em PostgreSQL via PGlite com stubs de `auth` e `storage`, incluindo pedido completo, cupom, itens, histórico, promoção de administrador, RPC de combos e políticas RLS.
 - `npm run build`
 - Migration aplicada no Supabase real via Management API: 14 tabelas, 25 policies públicas + 4 de Storage, bucket e administrador inicial verificados.

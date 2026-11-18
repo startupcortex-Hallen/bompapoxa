@@ -6,11 +6,14 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Copy,
+  ExternalLink,
   MapPin,
   MessageSquare,
   Package,
   Phone,
   ReceiptText,
+  RefreshCw,
   Star,
   Store,
 } from "lucide-react";
@@ -21,10 +24,17 @@ import { Input, Textarea } from "@/components/ui/form";
 import { Badge, EstadoErro, EstadoVazio, Skeleton } from "@/components/ui/feedback";
 import { Estrelas } from "@/components/menu/common";
 import { consultarPedido, avaliarPedido } from "@/lib/api";
+import { sincronizarPagamentoOnline } from "@/lib/online-payments";
+import {
+  PAGAMENTO_STATUS_DESCRICAO,
+  PAGAMENTO_STATUS_LABEL,
+  metodoPagamentoLabel,
+  pagamentoStatusCor,
+} from "@/lib/payment-status";
 import { dataBR, dataHoraBR, horaBR, moedaBRL } from "@/lib/format";
 import { lerUltimoPedido } from "@/hooks/use-cart";
 import { layoutPublicoQuery } from "@/lib/queries";
-import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL, STATUS_DESCRICAO, STATUS_LABEL, etapasPedido, indiceEtapa } from "@/lib/order-status";
+import { MODALIDADE_LABEL, STATUS_DESCRICAO, STATUS_LABEL, etapasPedido, indiceEtapa } from "@/lib/order-status";
 import { useTitulo } from "@/lib/page-title";
 import { estiloTema } from "@/lib/theme";
 import type { Configuracoes, StatusPedidoRastreio } from "@/lib/types";
@@ -134,9 +144,48 @@ function Acompanhamento({
   const [nome, setNome] = useState(pedido.cliente_nome);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [sincronizandoPagamento, setSincronizandoPagamento] = useState(false);
+  const [erroPagamento, setErroPagamento] = useState<string | null>(null);
   const etapas = useMemo(() => etapasPedido(pedido.modalidade), [pedido.modalidade]);
   const atual = indiceEtapa(pedido);
   const podeAvaliar = (pedido.status === "entregue" || pedido.status === "retirado") && !pedido.avaliacao;
+  const pagamentoOnline = pedido.pagamento;
+  const temPagamentoOnline = pedido.pagamento_provedor === "mercadopago";
+
+  const verificarPagamento = async () => {
+    setSincronizandoPagamento(true);
+    setErroPagamento(null);
+    try {
+      const resposta = await sincronizarPagamentoOnline({
+        pedidoId: pedido.id,
+        trackingToken: token,
+        forcar: true,
+      });
+      if (resposta.status === "aprovado") {
+        toast.success("Pagamento aprovado pelo Mercado Pago.");
+      } else if (resposta.mensagem) {
+        toast.info(resposta.mensagem);
+      } else {
+        toast.info(`Status do pagamento: ${PAGAMENTO_STATUS_LABEL[resposta.status]}.`);
+      }
+      recarregar();
+      await qc.invalidateQueries({ queryKey: ["pedido-publico"] });
+    } catch (erroSync) {
+      setErroPagamento(erroSync instanceof Error ? erroSync.message : "Não foi possível verificar o pagamento.");
+    } finally {
+      setSincronizandoPagamento(false);
+    }
+  };
+
+  const copiarCodigoPix = async () => {
+    if (!pagamentoOnline?.qr_code) return;
+    try {
+      await navigator.clipboard.writeText(pagamentoOnline.qr_code);
+      toast.success("Código PIX copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o código PIX.");
+    }
+  };
 
   const enviarAvaliacao = async () => {
     setErro(null);
@@ -280,11 +329,105 @@ function Acompanhamento({
           </h2>
           <p className="mt-3 text-sm">{pedido.cliente_nome}</p>
           <p className="text-sm text-muted-foreground">{pedido.cliente_telefone}</p>
-          <p className="mt-3 text-sm">Pagamento: {FORMA_PAGAMENTO_LABEL[pedido.forma_pagamento]}</p>
+          <p className="mt-3 text-sm">
+            Pagamento:{" "}
+            {temPagamentoOnline
+              ? metodoPagamentoLabel(pedido.forma_pagamento, "mercadopago", pedido.pagamento_online_tipo)
+              : metodoPagamentoLabel(pedido.forma_pagamento, "manual")}
+          </p>
           <p className="text-sm text-muted-foreground">Situação: {pedido.status_pagamento === "pago" ? "Pago" : "A pagar"}</p>
           {pedido.troco_para ? <p className="text-xs text-muted-foreground">Troco para {moedaBRL(pedido.troco_para)}</p> : null}
         </div>
       </section>
+
+      {temPagamentoOnline ? (
+        <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-xl">
+              <ReceiptText className="h-4 w-4" /> Pagamento online
+            </h2>
+            <Badge cor={pagamentoStatusCor(pagamentoOnline?.status ?? "erro")}>
+              {pagamentoOnline ? PAGAMENTO_STATUS_LABEL[pagamentoOnline.status] : "Aguardando registro"}
+            </Badge>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {pagamentoOnline
+              ? PAGAMENTO_STATUS_DESCRICAO[pagamentoOnline.status]
+              : "O pedido foi registrado, mas o pagamento online ainda não retornou do Mercado Pago."}
+          </p>
+
+          {pagamentoOnline?.tipo === "pix" && pagamentoOnline.status !== "aprovado" && pagamentoOnline.qr_code_base64 ? (
+            <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-start">
+              <img
+                src={`data:image/png;base64,${pagamentoOnline.qr_code_base64}`}
+                alt="QR Code PIX do Mercado Pago"
+                className="h-44 w-44 shrink-0"
+              />
+              <div className="min-w-0 flex-1 text-foreground">
+                <p className="text-sm font-medium">Escaneie o QR Code ou use o PIX copia e cola.</p>
+                {pagamentoOnline.qr_code ? (
+                  <>
+                    <p className="mt-2 break-all rounded-lg bg-secondary/50 p-2 font-mono text-[10px] leading-relaxed">
+                      {pagamentoOnline.qr_code}
+                    </p>
+                    <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void copiarCodigoPix()}>
+                      <Copy className="h-3.5 w-3.5" /> Copiar código PIX
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {pagamentoOnline?.ticket_url ? (
+            <a
+              href={pagamentoOnline.ticket_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary underline decoration-current/30 underline-offset-4 hover:decoration-current"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir instruções PIX
+            </a>
+          ) : null}
+
+          {pagamentoOnline?.tipo === "cartao" && pagamentoOnline.status !== "aprovado" && pagamentoOnline.init_point ? (
+            <a
+              href={pagamentoOnline.init_point}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex"
+            >
+              <Button variant="outline">
+                <ExternalLink className="h-4 w-4" /> Abrir checkout do Mercado Pago
+              </Button>
+            </a>
+          ) : null}
+
+          {pagamentoOnline?.ultimo_erro ? (
+            <p className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{pagamentoOnline.ultimo_erro}</p>
+          ) : null}
+          {erroPagamento ? (
+            <p className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{erroPagamento}</p>
+          ) : null}
+
+          {pagamentoOnline?.status === "aprovado" ? (
+            <p className="mt-4 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
+              <CheckCircle2 className="h-4 w-4" /> Pagamento confirmado pelo Mercado Pago.
+            </p>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              carregando={sincronizandoPagamento}
+              onClick={() => void verificarPagamento()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Verificar pagamento
+            </Button>
+          )}
+        </section>
+      ) : null}
 
       {pedido.observacoes ? (
         <section className="rounded-2xl border border-border bg-card p-5">

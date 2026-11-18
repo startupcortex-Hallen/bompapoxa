@@ -3,11 +3,13 @@ import { Link, Outlet, useLocation, useRouter, createFileRoute } from "@tanstack
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRight,
+  CreditCard,
   ExternalLink,
   LayoutDashboard,
   LogOut,
   Menu,
   Package,
+  Printer,
   QrCode,
   ReceiptText,
   Settings,
@@ -51,6 +53,8 @@ const GRUPOS = [
     itens: [
       { to: "/admin/banners", rotulo: "Banners", icone: ImageIcon },
       { to: "/admin/cupons", rotulo: "Cupons", icone: TicketPercent },
+      { to: "/admin/pagamentos", rotulo: "Pagamentos", icone: CreditCard },
+      { to: "/admin/impressao", rotulo: "Impressão", icone: Printer },
       { to: "/admin/avaliacoes", rotulo: "Avaliações", icone: Star },
       { to: "/admin/configuracoes", rotulo: "Configurações", icone: Settings },
       { to: "/admin/qr", rotulo: "QR do cardápio", icone: QrCode },

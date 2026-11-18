@@ -20,7 +20,7 @@ adequado.
 ## Migration
 
 As migrations já foram aplicadas no projeto `tbckigurtfwpgnuhrapr` via Management API. Foram
-verificados 14 tabelas `cardapio_exemplo_*`, as funções, os triggers, as políticas, o bucket
+verificados 22 tabelas `cardapio_exemplo_*`, as funções, os triggers, as políticas, o bucket
 `cardapio-exemplo-imagens` e as colunas de coordenadas em `cardapio_exemplo_pedidos`.
 
 Para reaplicar em outro projeto ou recuperar o ambiente:
@@ -134,7 +134,7 @@ exige login.
 A migration também é executada automaticamente por `npm run test:sql` em PostgreSQL (PGlite) com
 stubs de `auth` e `storage`. Os testes cobrem:
 
-- criação das 14 tabelas;
+- criação das 22 tabelas atuais;
 - seed de configurações, horários, categorias e banner;
 - promoção de administrador;
 - criação de produto, adicional e cupom;
@@ -150,7 +150,7 @@ stubs de `auth` e `storage`. Os testes cobrem:
 Validação live no projeto Supabase real:
 
 - migration aplicada via Management API;
-- 14 tabelas, 25 policies públicas + 4 de Storage, bucket e administrador verificados;
+- tabelas, políticas públicas + 4 de Storage, bucket e administrador verificados;
 - login real do administrador no site publicado;
 - criação e exclusão de categoria;
 - criação de produto com upload de imagem no Storage;
@@ -170,3 +170,30 @@ Validação live no projeto Supabase real:
 - O catálogo real já está aplicado. Use o painel para trocar as imagens ilustrativas dos kebabs e dos combos Enrolado/Frangolino pelas fotos oficiais. Não execute `cleanup-demo.sql` com o cardápio real ativo.
 - Se desejar tempo real, habilitar a publicação Realtime das tabelas `cardapio_exemplo_pedidos` e `cardapio_exemplo_historico_pedidos` no painel; o frontend usa polling a cada 15 segundos por padrão.
 - Revogar ou rotacionar o Personal Access Token usado no provisionamento, pois ele foi compartilhado na conversa e não foi gravado no repositório.
+
+## Pagamentos online e impress�o (migration 202611180001)
+
+A migration `202611180001_bompapoxa_pagamentos_impressao.sql` adiciona:
+
+- `cardapio_exemplo_pagamento_config` � ativa��o de PIX/cart�o online e �ltimo teste de comunica��o.
+- `cardapio_exemplo_pagamentos` � tentativa idempotente por pedido, com IDs do Mercado Pago, QR PIX, status e erro.
+- `cardapio_exemplo_pagamento_eventos` � hist�rico t�cnico sem dados de cart�o.
+- `cardapio_exemplo_webhooks_processados` � idempot�ncia de notifica��es.
+- `cardapio_exemplo_impressoras` � dispositivos, largura 58/80, token com hash e �ltimo ping.
+- `cardapio_exemplo_fila_impressao` � fila persistente com snapshot, tentativas, erro, reimpress�o e solicitante.
+
+Fun��es principais:
+
+- `cardapio_exemplo_pagamento_publico()` � informa ao checkout se PIX/cart�o online est�o habilitados.
+- `cardapio_exemplo_get_pedido()` � agora inclui o resumo do pagamento online.
+- RPCs do agente: `cardapio_exemplo_agente_ping`, `cardapio_exemplo_agente_claim_jobs`, `cardapio_exemplo_agente_concluir`.
+- RPCs administrativas de impressora, teste, reimpress�o, reprocessamento e cancelamento.
+
+A migration � n�o destrutiva. Edge Functions do Mercado Pago ficam em `supabase/functions/` e os segredos devem ser cadastrados via `supabase secrets set`; consulte `docs/mercadopago.md` e `docs/impressao.md`.
+
+### RLS das novas tabelas
+
+- Pagamentos, eventos e webhooks: somente administrador l�; escrita apenas por `service_role` (Edge Functions).
+- Configura��o de pagamento: administrador l�/atualiza a linha �nica; p�blico consulta apenas o RPC sanitizado.
+- Impressoras: administrador gerencia; agente usa RPC com token de dispositivo.
+- Fila: administrador l� e opera por RPC; frontend n�o insere trabalhos diretamente.

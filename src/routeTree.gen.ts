@@ -27,6 +27,8 @@ import { Route as AuthenticatedAdminCombosRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAdminConfiguracoesRouteImport } from './routes/_authenticated/admin/configuracoes'
 import { Route as AuthenticatedAdminContaRouteImport } from './routes/_authenticated/admin/conta'
 import { Route as AuthenticatedAdminCuponsRouteImport } from './routes/_authenticated/admin/cupons'
+import { Route as AuthenticatedAdminImpressaoRouteImport } from './routes/_authenticated/admin/impressao'
+import { Route as AuthenticatedAdminPagamentosRouteImport } from './routes/_authenticated/admin/pagamentos'
 import { Route as AuthenticatedAdminPedidosRouteImport } from './routes/_authenticated/admin/pedidos'
 import { Route as AuthenticatedAdminProdutosRouteImport } from './routes/_authenticated/admin/produtos'
 import { Route as AuthenticatedAdminQrRouteImport } from './routes/_authenticated/admin/qr'
@@ -127,6 +129,18 @@ const AuthenticatedAdminCuponsRoute =
     path: '/cupons',
     getParentRoute: () => AuthenticatedAdminRouteRoute,
   } as any)
+const AuthenticatedAdminImpressaoRoute =
+  AuthenticatedAdminImpressaoRouteImport.update({
+    id: '/impressao',
+    path: '/impressao',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminPagamentosRoute =
+  AuthenticatedAdminPagamentosRouteImport.update({
+    id: '/pagamentos',
+    path: '/pagamentos',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminPedidosRoute =
   AuthenticatedAdminPedidosRouteImport.update({
     id: '/pedidos',
@@ -162,6 +176,8 @@ export interface FileRoutesByFullPath {
   '/admin/configuracoes': typeof AuthenticatedAdminConfiguracoesRoute
   '/admin/conta': typeof AuthenticatedAdminContaRoute
   '/admin/cupons': typeof AuthenticatedAdminCuponsRoute
+  '/admin/impressao': typeof AuthenticatedAdminImpressaoRoute
+  '/admin/pagamentos': typeof AuthenticatedAdminPagamentosRoute
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/admin/qr': typeof AuthenticatedAdminQrRoute
@@ -183,6 +199,8 @@ export interface FileRoutesByTo {
   '/admin/configuracoes': typeof AuthenticatedAdminConfiguracoesRoute
   '/admin/conta': typeof AuthenticatedAdminContaRoute
   '/admin/cupons': typeof AuthenticatedAdminCuponsRoute
+  '/admin/impressao': typeof AuthenticatedAdminImpressaoRoute
+  '/admin/pagamentos': typeof AuthenticatedAdminPagamentosRoute
   '/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/admin/qr': typeof AuthenticatedAdminQrRoute
@@ -207,6 +225,8 @@ export interface FileRoutesById {
   '/_authenticated/admin/configuracoes': typeof AuthenticatedAdminConfiguracoesRoute
   '/_authenticated/admin/conta': typeof AuthenticatedAdminContaRoute
   '/_authenticated/admin/cupons': typeof AuthenticatedAdminCuponsRoute
+  '/_authenticated/admin/impressao': typeof AuthenticatedAdminImpressaoRoute
+  '/_authenticated/admin/pagamentos': typeof AuthenticatedAdminPagamentosRoute
   '/_authenticated/admin/pedidos': typeof AuthenticatedAdminPedidosRoute
   '/_authenticated/admin/produtos': typeof AuthenticatedAdminProdutosRoute
   '/_authenticated/admin/qr': typeof AuthenticatedAdminQrRoute
@@ -231,6 +251,8 @@ export interface FileRouteTypes {
     | '/admin/configuracoes'
     | '/admin/conta'
     | '/admin/cupons'
+    | '/admin/impressao'
+    | '/admin/pagamentos'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/admin/qr'
@@ -252,6 +274,8 @@ export interface FileRouteTypes {
     | '/admin/configuracoes'
     | '/admin/conta'
     | '/admin/cupons'
+    | '/admin/impressao'
+    | '/admin/pagamentos'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/admin/qr'
@@ -275,6 +299,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/configuracoes'
     | '/_authenticated/admin/conta'
     | '/_authenticated/admin/cupons'
+    | '/_authenticated/admin/impressao'
+    | '/_authenticated/admin/pagamentos'
     | '/_authenticated/admin/pedidos'
     | '/_authenticated/admin/produtos'
     | '/_authenticated/admin/qr'
@@ -420,6 +446,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminCuponsRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/impressao': {
+      id: '/_authenticated/admin/impressao'
+      path: '/impressao'
+      fullPath: '/admin/impressao'
+      preLoaderRoute: typeof AuthenticatedAdminImpressaoRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/pagamentos': {
+      id: '/_authenticated/admin/pagamentos'
+      path: '/pagamentos'
+      fullPath: '/admin/pagamentos'
+      preLoaderRoute: typeof AuthenticatedAdminPagamentosRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/pedidos': {
       id: '/_authenticated/admin/pedidos'
       path: '/pedidos'
@@ -453,6 +493,8 @@ interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminConfiguracoesRoute: typeof AuthenticatedAdminConfiguracoesRoute
   AuthenticatedAdminContaRoute: typeof AuthenticatedAdminContaRoute
   AuthenticatedAdminCuponsRoute: typeof AuthenticatedAdminCuponsRoute
+  AuthenticatedAdminImpressaoRoute: typeof AuthenticatedAdminImpressaoRoute
+  AuthenticatedAdminPagamentosRoute: typeof AuthenticatedAdminPagamentosRoute
   AuthenticatedAdminPedidosRoute: typeof AuthenticatedAdminPedidosRoute
   AuthenticatedAdminProdutosRoute: typeof AuthenticatedAdminProdutosRoute
   AuthenticatedAdminQrRoute: typeof AuthenticatedAdminQrRoute
@@ -469,6 +511,8 @@ const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren
     AuthenticatedAdminConfiguracoesRoute: AuthenticatedAdminConfiguracoesRoute,
     AuthenticatedAdminContaRoute: AuthenticatedAdminContaRoute,
     AuthenticatedAdminCuponsRoute: AuthenticatedAdminCuponsRoute,
+    AuthenticatedAdminImpressaoRoute: AuthenticatedAdminImpressaoRoute,
+    AuthenticatedAdminPagamentosRoute: AuthenticatedAdminPagamentosRoute,
     AuthenticatedAdminPedidosRoute: AuthenticatedAdminPedidosRoute,
     AuthenticatedAdminProdutosRoute: AuthenticatedAdminProdutosRoute,
     AuthenticatedAdminQrRoute: AuthenticatedAdminQrRoute,

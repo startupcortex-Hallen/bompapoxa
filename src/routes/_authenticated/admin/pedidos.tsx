@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   Clock,
   MapPin,
+  Printer,
   Search,
   Store,
   Trash2,
@@ -21,7 +22,12 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
 import { adminPedidosQuery, chaves } from "@/lib/queries";
-import { atualizarPagamentoPedido, atualizarStatusPedido, excluirPedido } from "@/lib/api";
+import { atualizarPagamentoPedido, atualizarStatusPedido, enfileirarReimpressao, excluirPedido } from "@/lib/api";
+import {
+  PAGAMENTO_STATUS_LABEL,
+  metodoPagamentoLabel,
+  pagamentoStatusCor,
+} from "@/lib/payment-status";
 import { dataHoraBR, horaBR, moedaBRL, tempoRelativo } from "@/lib/format";
 import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL, STATUS_DESCRICAO, STATUS_LABEL, proximosStatus } from "@/lib/order-status";
 import { useTitulo } from "@/lib/page-title";
@@ -120,6 +126,16 @@ function PedidosPage() {
     }
   };
 
+  const reimprimir = async (pedido: Pedido) => {
+    try {
+      await enfileirarReimpressao(pedido.id);
+      toast.success(`Pedido #${pedido.numero} enviado para a fila de impressão.`);
+      await qc.invalidateQueries({ queryKey: chaves.adminFilaImpressao });
+    } catch (erro) {
+      toast.error(erro instanceof Error ? erro.message : "Não foi possível enfileirar a reimpressão.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -190,6 +206,11 @@ function PedidosPage() {
                       <p className="text-lg font-semibold">#{pedido.numero}</p>
                       <StatusPedidoBadge status={pedido.status} />
                       <StatusPagamentoBadge status={pedido.status_pagamento} />
+                      {pedido.pagamento_provedor === "mercadopago" ? (
+                        <Badge cor={pagamentoStatusCor(pedido.pagamento?.status ?? "pendente")}>
+                          Mercado Pago
+                        </Badge>
+                      ) : null}
                       <Badge>{pedido.modalidade === "delivery" ? <><Bike className="h-3 w-3" /> Entrega</> : <><Store className="h-3 w-3" /> Retirada</>}</Badge>
                     </div>
                     <p className="mt-1 text-sm">{pedido.cliente_nome} • {pedido.cliente_telefone}</p>
@@ -244,6 +265,7 @@ function PedidosPage() {
             aoMudarStatus={(status) => void mudarStatus(selecionado, status)}
             aoMarcarPago={() => void marcarPago(selecionado)}
             aoExcluir={() => void excluir(selecionado)}
+            aoReimprimir={() => void reimprimir(selecionado)}
           />
         ) : null}
       </Modal>
@@ -251,13 +273,30 @@ function PedidosPage() {
   );
 }
 
-function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago, aoExcluir }: { pedido: Pedido; aoMudarStatus: (status: StatusPedido) => void; aoMarcarPago: () => void; aoExcluir: () => void }) {
+function DetalhePedido({
+  pedido,
+  aoMudarStatus,
+  aoMarcarPago,
+  aoExcluir,
+  aoReimprimir,
+}: {
+  pedido: Pedido;
+  aoMudarStatus: (status: StatusPedido) => void;
+  aoMarcarPago: () => void;
+  aoExcluir: () => void;
+  aoReimprimir: () => void;
+}) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary/35 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <StatusPedidoBadge status={pedido.status} />
           <StatusPagamentoBadge status={pedido.status_pagamento} />
+          {pedido.pagamento_provedor === "mercadopago" ? (
+            <Badge cor={pagamentoStatusCor(pedido.pagamento?.status ?? "pendente")}>
+              {pedido.pagamento ? PAGAMENTO_STATUS_LABEL[pedido.pagamento.status] : "Mercado Pago"}
+            </Badge>
+          ) : null}
           <Badge>{MODALIDADE_LABEL[pedido.modalidade]}</Badge>
         </div>
         <p className="text-xl font-semibold">{moedaBRL(pedido.total)}</p>
@@ -300,6 +339,23 @@ function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago, aoExcluir }: { ped
           )}
         </div>
       </div>
+
+      {pedido.pagamento_provedor === "mercadopago" || pedido.pagamento ? (
+        <div className="rounded-xl border border-border p-4 text-sm">
+          <p className="text-xs font-medium text-muted-foreground">Pagamento online</p>
+          <p className="mt-1">
+            {pedido.pagamento
+              ? `${metodoPagamentoLabel(pedido.forma_pagamento, "mercadopago", pedido.pagamento_online_tipo)} • ${PAGAMENTO_STATUS_LABEL[pedido.pagamento.status]}`
+              : "Mercado Pago sem registro de pagamento online."}
+          </p>
+          {pedido.pagamento?.ultimo_erro ? (
+            <p className="mt-1 text-xs text-danger">{pedido.pagamento.ultimo_erro}</p>
+          ) : null}
+          {pedido.pagamento?.mp_payment_id ? (
+            <p className="mt-1 font-mono text-[11px] text-muted-foreground">MP: {pedido.pagamento.mp_payment_id}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div>
         <p className="text-xs font-medium text-muted-foreground">Itens</p>
@@ -357,7 +413,10 @@ function DetalhePedido({ pedido, aoMudarStatus, aoMarcarPago, aoExcluir }: { ped
             <XCircle className="h-4 w-4" /> Cancelar pedido
           </Button>
         ) : null}
-        <Button variant="ghost" className="ml-auto text-danger hover:bg-danger/10" onClick={aoExcluir}>
+        <Button variant="outline" className="ml-auto" onClick={aoReimprimir}>
+          <Printer className="h-4 w-4" /> Imprimir novamente
+        </Button>
+        <Button variant="ghost" className="text-danger hover:bg-danger/10" onClick={aoExcluir}>
           <Trash2 className="h-4 w-4" /> Excluir pedido
         </Button>
       </div>

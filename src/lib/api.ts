@@ -2,13 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { removerImagens } from "./image-upload";
 import { mensagemErro } from "./auth";
 import { numero } from "./format";
-import { mapAdicional, mapBanner, mapCategoria, mapConfig, mapCupom, mapHorario, mapProduto } from "./mappers";
+import { mapAdicional, mapBanner, mapCategoria, mapConfig, mapCupom, mapHorario, mapPagamento, mapProduto } from "./mappers";
 import type {
   Adicional,
   Avaliacao,
   Banner,
   Categoria,
   Combo,
+  ConfiguracaoPagamento,
   Configuracoes,
   Cupom,
   EnderecoPedido,
@@ -87,6 +88,10 @@ function mapRastreio(valor: unknown): StatusPedidoRastreio | null {
       }))
     : [];
   const avaliacao = row.avaliacao && typeof row.avaliacao === "object" ? (row.avaliacao as StatusPedidoRastreio["avaliacao"]) : null;
+  const pagamento =
+    row.pagamento && typeof row.pagamento === "object"
+      ? mapPagamento({ ...(row.pagamento as Row), pedido_id: row.id })
+      : null;
   return {
     id: String(row.id ?? ""),
     numero: numero(row.numero),
@@ -107,6 +112,8 @@ function mapRastreio(valor: unknown): StatusPedidoRastreio | null {
     troco_para: row.troco_para == null ? null : numero(row.troco_para),
     status: (row.status as StatusPedido) ?? "novo",
     status_pagamento: (row.status_pagamento as StatusPagamento) ?? "pendente",
+    pagamento_provedor: (row.pagamento_provedor as Pedido["pagamento_provedor"]) ?? "manual",
+    pagamento_online_tipo: (row.pagamento_online_tipo as Pedido["pagamento_online_tipo"]) ?? null,
     subtotal: numero(row.subtotal),
     taxa_entrega: numero(row.taxa_entrega),
     desconto: numero(row.desconto),
@@ -118,6 +125,7 @@ function mapRastreio(valor: unknown): StatusPedidoRastreio | null {
     itens,
     historico,
     avaliacao,
+    pagamento,
   };
 }
 
@@ -573,4 +581,66 @@ export async function reordenar(tabela: "categorias" | "produtos" | "banners", i
 
 export function avaliacaoParaMapa(lista: Avaliacao[]): Map<string, Avaliacao> {
   return new Map(lista.map((avaliacao) => [avaliacao.pedido_id, avaliacao]));
+}
+
+export async function atualizarConfiguracaoPagamento(patch: Partial<ConfiguracaoPagamento>): Promise<void> {
+  const { error } = await supabase
+    .from("cardapio_exemplo_pagamento_config")
+    .update(patch)
+    .eq("id", 1);
+  if (error) falhar(error);
+}
+
+export async function criarImpressora(entrada: {
+  nome: string;
+  largura_mm: 58 | 80;
+  setor?: string;
+}): Promise<{ id: string; nome: string; setor: string; largura_mm: 58 | 80; token: string }> {
+  const { data, error } = await supabase.rpc("cardapio_exemplo_criar_impressora", {
+    p_nome: entrada.nome,
+    p_largura_mm: entrada.largura_mm,
+    p_setor: entrada.setor ?? "principal",
+  });
+  if (error) falhar(error);
+  return data as { id: string; nome: string; setor: string; largura_mm: 58 | 80; token: string };
+}
+
+export async function regenerarTokenImpressora(id: string): Promise<string> {
+  const { data, error } = await supabase.rpc("cardapio_exemplo_regenerar_token_impressora", { p_id: id });
+  if (error) falhar(error);
+  return String(data);
+}
+
+export async function atualizarImpressora(
+  id: string,
+  patch: { nome?: string; largura_mm?: 58 | 80; setor?: string; ativo?: boolean },
+): Promise<void> {
+  const { error } = await supabase.from("cardapio_exemplo_impressoras").update(patch).eq("id", id);
+  if (error) falhar(error);
+}
+
+export async function enfileirarTesteImpressao(impressoraId?: string | null): Promise<string> {
+  const { data, error } = await supabase.rpc("cardapio_exemplo_enfileirar_teste", {
+    p_impressora_id: impressoraId ?? null,
+  });
+  if (error) falhar(error);
+  return String(data);
+}
+
+export async function enfileirarReimpressao(pedidoId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("cardapio_exemplo_enfileirar_reimpressao", {
+    p_pedido_id: pedidoId,
+  });
+  if (error) falhar(error);
+  return String(data);
+}
+
+export async function reprocessarImpressao(jobId: string): Promise<void> {
+  const { error } = await supabase.rpc("cardapio_exemplo_reprocessar_impressao", { p_id: jobId });
+  if (error) falhar(error);
+}
+
+export async function cancelarImpressao(jobId: string): Promise<void> {
+  const { error } = await supabase.rpc("cardapio_exemplo_cancelar_impressao", { p_id: jobId });
+  if (error) falhar(error);
 }

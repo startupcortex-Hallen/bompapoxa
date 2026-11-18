@@ -39,6 +39,9 @@ jobs:
       - name: Executar testes
         run: npm test
 
+      - name: Executar testes de integrações
+        run: npm run test:integrations
+
       - name: Validar a migration no PostgreSQL
         run: npm run test:sql
 

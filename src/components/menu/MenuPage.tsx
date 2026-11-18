@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -229,7 +230,7 @@ function Conteudo({
   return (
     <PublicLayout config={config} horarios={horarios} aberto={aberto} headerOverlay>
       <div className={cn(carrinho.quantidade > 0 && "pb-28")}>
-        <Hero config={config} banner={banners[0]} horarios={horarios} />
+        <Hero config={config} banner={banners[0]} horarios={horarios} comCarrinho={carrinho.quantidade > 0} />
 
         {vazio ? (
           <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
@@ -462,38 +463,44 @@ function Conteudo({
         )}
       </div>
 
-      {carrinho.quantidade > 0 ? (
-        <div className="safe-bottom fixed inset-x-0 bottom-0 z-50 px-3 pb-3 sm:px-6">
-          <div className="mx-auto max-w-[1400px]">
-            <button
-              type="button"
-              onClick={() => setSacolaAberta(true)}
-              className={cn(
-                "group flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#141414]/95 p-2.5 pl-4 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.95)] backdrop-blur-xl transition hover:border-primary/50",
-                pulsoCarrinho && "cart-pop",
-              )}
+      {carrinho.quantidade > 0 && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="fixed inset-x-0 bottom-0 z-50 w-full px-3 sm:px-6"
+              style={{ paddingBottom: "max(0.9rem, env(safe-area-inset-bottom))" }}
             >
-              <span className="flex min-w-0 items-center gap-3">
-                <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white shadow-[0_10px_28px_-10px_rgba(229,9,20,0.9)]">
-                  <ShoppingBag className="h-4 w-4" />
-                  <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full border border-[#141414] bg-white px-1 text-[10px] font-bold text-[#090909]">
-                    {carrinho.quantidade}
+              <div className="mx-auto w-full max-w-[1400px]">
+                <button
+                  type="button"
+                  onClick={() => setSacolaAberta(true)}
+                  className={cn(
+                    "group flex w-full min-w-0 items-center justify-between gap-2 rounded-2xl border border-white/10 bg-[#141414]/95 p-2.5 pl-3 shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.95)] backdrop-blur-xl transition hover:border-primary/50 sm:gap-3 sm:pl-4",
+                    pulsoCarrinho && "cart-pop",
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2 sm:gap-3">
+                    <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white shadow-[0_10px_28px_-10px_rgba(229,9,20,0.9)]">
+                      <ShoppingBag className="h-4 w-4" />
+                      <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full border border-[#141414] bg-white px-1 text-[10px] font-bold text-[#090909]">
+                        {carrinho.quantidade}
+                      </span>
+                    </span>
+                    <span className="min-w-0 text-left">
+                      <span className="block text-[10px] uppercase tracking-[0.18em] text-white/45">
+                        {carrinho.quantidade} {carrinho.quantidade === 1 ? "item" : "itens"}
+                      </span>
+                      <span className="block text-sm font-semibold text-white">{moedaBRL(carrinho.subtotal)}</span>
+                    </span>
                   </span>
-                </span>
-                <span className="min-w-0 text-left">
-                  <span className="block text-[10px] uppercase tracking-[0.18em] text-white/45">
-                    {carrinho.quantidade} {carrinho.quantidade === 1 ? "item" : "itens"}
+                  <span className="inline-flex h-10 shrink-0 items-center gap-1 rounded-xl bg-primary px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition group-hover:brightness-110 sm:gap-1.5 sm:px-4 sm:tracking-[0.14em]">
+                    Ver pedido <ArrowRight className="h-3.5 w-3.5" />
                   </span>
-                  <span className="block text-sm font-semibold text-white">{moedaBRL(carrinho.subtotal)}</span>
-                </span>
-              </span>
-              <span className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-white transition group-hover:brightness-110">
-                Ver pedido <ArrowRight className="h-3.5 w-3.5" />
-              </span>
-            </button>
-          </div>
-        </div>
-      ) : null}
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <ProdutoModal
         produto={produto}
@@ -543,10 +550,12 @@ function Hero({
   config,
   banner,
   horarios,
+  comCarrinho,
 }: {
   config: CardapioPublico["configuracoes"];
   banner: CardapioPublico["banners"][number] | undefined;
   horarios: CardapioPublico["horarios"];
+  comCarrinho: boolean;
 }) {
   const imagem = config.banner_url ?? banner?.imagem_url ?? HERO_POSTER;
   const semMovimento = usePrefersReducedMotion();
@@ -637,7 +646,12 @@ function Hero({
       <div className="absolute inset-0 bg-gradient-to-t from-[#090909] via-[#090909]/25 to-transparent" />
       <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-black/80 to-transparent" />
 
-      <div className="relative mx-auto flex min-h-[100svh] max-w-[1400px] flex-col justify-end px-4 pb-16 pt-28 sm:px-6 sm:pb-20 lg:pb-24">
+      <div
+        className={cn(
+          "relative mx-auto flex min-h-[100svh] max-w-[1400px] flex-col justify-end px-4 pt-28 sm:px-6",
+          comCarrinho ? "pb-36 sm:pb-28" : "pb-16 sm:pb-20 lg:pb-24",
+        )}
+      >
         <div className="max-w-3xl">
           <p className="hero-up flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.3em] text-gold">
             <span className="h-px w-10 bg-gold/60" /> Smash burger • Artesanal

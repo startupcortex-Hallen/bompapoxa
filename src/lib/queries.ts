@@ -12,13 +12,18 @@ import {
   mapComboItem,
   mapComboOpcao,
   mapConfig,
+  mapConfiguracaoPagamento,
   mapCupom,
+  mapEventoPagamento,
   mapHistorico,
   mapHorario,
+  mapImpressora,
   mapItemPedido,
+  mapPagamento,
   mapPedido,
   mapPerfil,
   mapProduto,
+  mapTrabalhoImpressao,
 } from "./mappers";
 import type {
   Adicional,
@@ -27,13 +32,19 @@ import type {
   CardapioPublico,
   Categoria,
   Combo,
+  ConfiguracaoPagamento,
   Configuracoes,
   Cupom,
+  EventoPagamento,
   Horario,
+  Impressora,
   ItemPedido,
+  Pagamento,
+  PagamentoPublico,
   Pedido,
   Perfil,
   Produto,
+  TrabalhoImpressao,
 } from "./types";
 
 type Row = Record<string, unknown>;
@@ -60,6 +71,12 @@ export const chaves = {
   adminConfiguracoes: ["admin", "configuracoes"] as const,
   adminDashboard: ["admin", "dashboard"] as const,
   adminPerfil: ["admin", "perfil"] as const,
+  adminPagamentos: ["admin", "pagamentos"] as const,
+  adminPagamentoEventos: ["admin", "pagamento-eventos"] as const,
+  adminImpressoras: ["admin", "impressoras"] as const,
+  adminFilaImpressao: ["admin", "fila-impressao"] as const,
+  adminPagamentoConfig: ["admin", "pagamento-config"] as const,
+  pagamentoPublico: ["pagamento-publico"] as const,
 };
 
 export async function carregarConfiguracoes(): Promise<Configuracoes> {
@@ -226,6 +243,28 @@ export const layoutPublicoQuery = queryOptions({
   refetchInterval: 60_000,
 });
 
+export async function carregarPagamentoPublico(): Promise<PagamentoPublico> {
+  try {
+    const { data, error } = await supabase.rpc("cardapio_exemplo_pagamento_publico");
+    if (error) throw error;
+    const row = (data && typeof data === "object" ? data : {}) as Row;
+    return {
+      mercadopago_ativo: row.mercadopago_ativo === true,
+      pix_online: row.pix_online === true,
+      cartao_online: row.cartao_online === true,
+    };
+  } catch {
+    return { mercadopago_ativo: false, pix_online: false, cartao_online: false };
+  }
+}
+
+export const pagamentoPublicoQuery = queryOptions({
+  queryKey: chaves.pagamentoPublico,
+  queryFn: carregarPagamentoPublico,
+  staleTime: 60_000,
+  refetchInterval: 120_000,
+});
+
 export async function carregarAdminCategorias(): Promise<Categoria[]> {
   const { data, error } = await supabase
     .from("cardapio_exemplo_categorias")
@@ -331,17 +370,92 @@ export async function carregarAdminPedidos(): Promise<Pedido[]> {
   const pedidos = rows(data);
   if (!pedidos.length) return [];
   const ids = pedidos.map((p) => String(p.id));
-  const [itens, historico] = await Promise.all([
+  const [itens, historico, pagamentos] = await Promise.all([
     supabase.from("cardapio_exemplo_itens_pedido").select("*").in("pedido_id", ids),
     supabase.from("cardapio_exemplo_historico_pedidos").select("*").in("pedido_id", ids).order("created_at"),
+    supabase.from("cardapio_exemplo_pagamentos").select("*").in("pedido_id", ids),
   ]);
   if (itens.error) throw itens.error;
   if (historico.error) throw historico.error;
   const itensPorPedido = agruparPor(rows(itens.data).map(mapItemPedido), (item: ItemPedido) => item.pedido_id);
   const historicoPorPedido = agruparPor(rows(historico.data).map(mapHistorico), (item) => item.pedido_id);
+  const pagamentosPorPedido = pagamentos.error
+    ? new Map<string, Pagamento>()
+    : new Map(rows(pagamentos.data).map(mapPagamento).map((pagamento) => [pagamento.pedido_id, pagamento]));
   return pedidos.map((row) =>
-    mapPedido(row, itensPorPedido.get(String(row.id)) ?? [], historicoPorPedido.get(String(row.id)) ?? []),
+    mapPedido(
+      row,
+      itensPorPedido.get(String(row.id)) ?? [],
+      historicoPorPedido.get(String(row.id)) ?? [],
+      pagamentosPorPedido.get(String(row.id)) ?? null,
+    ),
   );
+}
+
+export async function carregarAdminPagamentos(): Promise<Pagamento[]> {
+  const { data, error } = await supabase
+    .from("cardapio_exemplo_pagamentos")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return rows(data).map(mapPagamento);
+}
+
+export async function carregarAdminPagamentoEventos(): Promise<EventoPagamento[]> {
+  const { data, error } = await supabase
+    .from("cardapio_exemplo_pagamento_eventos")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return rows(data).map(mapEventoPagamento);
+}
+
+export async function carregarAdminPagamentoConfig(): Promise<ConfiguracaoPagamento | null> {
+  const { data, error } = await supabase
+    .from("cardapio_exemplo_pagamento_config")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapConfiguracaoPagamento(data as Row) : null;
+}
+
+export async function carregarAdminImpressoras(): Promise<Impressora[]> {
+  const { data, error } = await supabase
+    .from("cardapio_exemplo_impressoras")
+    .select("*")
+    .order("created_at");
+  if (error) throw error;
+  return rows(data).map(mapImpressora);
+}
+
+export async function carregarAdminFilaImpressao(): Promise<TrabalhoImpressao[]> {
+  const { data, error } = await supabase
+    .from("cardapio_exemplo_fila_impressao")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  const trabalhos = rows(data).map(mapTrabalhoImpressao);
+  const ids = [...new Set(trabalhos.map((job) => job.pedido_id).filter((id): id is string => Boolean(id)))];
+  const nomesImpressoras = new Map(
+    (await carregarAdminImpressoras().catch(() => [])).map((impressora) => [impressora.id, impressora.nome]),
+  );
+  let numeros = new Map<string, number>();
+  if (ids.length) {
+    const pedidos = await supabase
+      .from("cardapio_exemplo_pedidos")
+      .select("id, numero")
+      .in("id", ids);
+    if (!pedidos.error) numeros = new Map(rows(pedidos.data).map((row) => [String(row.id), Number(row.numero)]));
+  }
+  return trabalhos.map((job) => ({
+    ...job,
+    pedido_numero: job.pedido_id ? (numeros.get(job.pedido_id) ?? null) : null,
+    impressora_nome: job.impressora_id ? (nomesImpressoras.get(job.impressora_id) ?? null) : null,
+  }));
 }
 
 export async function carregarAdminAvaliacoes(): Promise<Avaliacao[]> {
@@ -491,5 +605,28 @@ export const adminDashboardQuery = queryOptions({
   refetchInterval: 30_000,
 });
 export const adminPerfilQuery = queryOptions({ queryKey: chaves.adminPerfil, queryFn: carregarPerfil });
+export const adminPagamentosQuery = queryOptions({
+  queryKey: chaves.adminPagamentos,
+  queryFn: carregarAdminPagamentos,
+  refetchInterval: 30_000,
+});
+export const adminPagamentoEventosQuery = queryOptions({
+  queryKey: chaves.adminPagamentoEventos,
+  queryFn: carregarAdminPagamentoEventos,
+});
+export const adminPagamentoConfigQuery = queryOptions({
+  queryKey: chaves.adminPagamentoConfig,
+  queryFn: carregarAdminPagamentoConfig,
+});
+export const adminImpressorasQuery = queryOptions({
+  queryKey: chaves.adminImpressoras,
+  queryFn: carregarAdminImpressoras,
+  refetchInterval: 20_000,
+});
+export const adminFilaImpressaoQuery = queryOptions({
+  queryKey: chaves.adminFilaImpressao,
+  queryFn: carregarAdminFilaImpressao,
+  refetchInterval: 10_000,
+});
 
 

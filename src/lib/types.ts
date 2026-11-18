@@ -7,6 +7,155 @@
   | "retirado"
   | "cancelado";
 
+export type PagamentoProvedor = "manual" | "mercadopago";
+export type PagamentoTipo = "pix" | "cartao";
+export type PagamentoStatus =
+  | "pendente"
+  | "em_processamento"
+  | "aprovado"
+  | "recusado"
+  | "cancelado"
+  | "expirado"
+  | "estornado"
+  | "erro";
+
+export type Pagamento = {
+  id: string;
+  pedido_id: string;
+  provedor: "mercadopago";
+  ambiente: "sandbox" | "producao";
+  tipo: PagamentoTipo;
+  status: PagamentoStatus;
+  status_mp: string | null;
+  metodo: string | null;
+  valor: number;
+  moeda: string;
+  mp_order_id: string | null;
+  mp_payment_id: string | null;
+  mp_preference_id: string | null;
+  mp_external_reference: string;
+  qr_code: string | null;
+  qr_code_base64: string | null;
+  ticket_url: string | null;
+  init_point: string | null;
+  sandbox_init_point: string | null;
+  ultimo_erro: string | null;
+  aprovado_em: string | null;
+  expirado_em: string | null;
+  sincronizado_em: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PagamentoPublico = {
+  mercadopago_ativo: boolean;
+  pix_online: boolean;
+  cartao_online: boolean;
+};
+
+export type ResultadoPagamentoOnline = {
+  ok: boolean;
+  jaPago?: boolean;
+  reutilizado?: boolean;
+  cache?: boolean;
+  tipo: PagamentoTipo;
+  status: PagamentoStatus;
+  checkoutUrl?: string | null;
+  pagamento: Pagamento | null;
+  mensagem?: string;
+};
+
+export type StatusIntegracaoPagamento =
+  | "nao_configurado"
+  | "aguardando_credenciais"
+  | "configurado_sandbox"
+  | "configurado_producao"
+  | "testes_aprovados"
+  | "pronto_para_producao"
+  | "producao_ativa";
+
+export type StatusIntegracaoMercadoPago = {
+  ok: boolean;
+  status: StatusIntegracaoPagamento;
+  ambiente: "sandbox" | "producao";
+  configurado: boolean;
+  accessTokenConfigurado: boolean;
+  publicKeyConfigurado: boolean;
+  webhookSecretConfigurado: boolean;
+  faltando: string[];
+  webhookUrl: string;
+  appUrl: string;
+  ativo: boolean;
+  pixOnline: boolean;
+  cartaoOnline: boolean;
+  ultimoTesteOk: boolean;
+  ultimoTesteEm: string | null;
+  ultimoTesteAmbiente: string | null;
+  ultimoTesteMensagem: string | null;
+  comunicacao?: { ok: boolean; mensagem: string } | null;
+  prontoParaProducao: boolean;
+};
+
+export type StatusImpressao = "pendente" | "processando" | "impresso" | "erro" | "cancelado";
+
+export type Impressora = {
+  id: string;
+  nome: string;
+  setor: string;
+  largura_mm: 58 | 80;
+  ativo: boolean;
+  ultimo_ping_em: string | null;
+  ultimo_info: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrabalhoImpressao = {
+  id: string;
+  pedido_id: string | null;
+  impressora_id: string | null;
+  tipo: "pedido" | "teste";
+  setor: string;
+  job_key: string;
+  status: StatusImpressao;
+  largura_mm: 58 | 80 | null;
+  payload: Record<string, unknown>;
+  tentativas: number;
+  erro: string | null;
+  reimpressao: boolean;
+  solicitado_por: string | null;
+  created_at: string;
+  processing_at: string | null;
+  completed_at: string | null;
+  pedido_numero?: number | null;
+  impressora_nome?: string | null;
+};
+
+export type EventoPagamento = {
+  id: string;
+  pagamento_id: string | null;
+  pedido_id: string | null;
+  origem: "criacao" | "webhook" | "sincronizacao" | "admin" | "teste";
+  evento: string;
+  status_anterior: string | null;
+  status_novo: string | null;
+  detalhe: Record<string, unknown>;
+  created_at: string;
+};
+
+export type ConfiguracaoPagamento = {
+  id: number;
+  mercadopago_ativo: boolean;
+  pix_online_ativo: boolean;
+  cartao_online_ativo: boolean;
+  ultimo_teste_ok: boolean;
+  ultimo_teste_em: string | null;
+  ultimo_teste_ambiente: string | null;
+  ultimo_teste_mensagem: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Modalidade = "delivery" | "retirada";
 export type FormaPagamento = "pix" | "dinheiro" | "cartao";
 export type StatusPagamento = "pendente" | "pago" | "cancelado";
@@ -246,6 +395,8 @@ export type Pedido = {
   troco_para: number | null;
   status: StatusPedido;
   status_pagamento: StatusPagamento;
+  pagamento_provedor: PagamentoProvedor;
+  pagamento_online_tipo: PagamentoTipo | null;
   subtotal: number;
   taxa_entrega: number;
   desconto: number;
@@ -256,6 +407,7 @@ export type Pedido = {
   updated_at: string;
   itens: ItemPedido[];
   historico?: HistoricoPedido[];
+  pagamento?: Pagamento | null;
 };
 
 export type Avaliacao = {
