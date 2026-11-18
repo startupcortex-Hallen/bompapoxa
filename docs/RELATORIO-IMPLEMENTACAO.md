@@ -176,6 +176,8 @@ supabase functions deploy mercadopago-admin-status
 | `npm run test:integrations` | 12 testes aprovados (7 Mercado Pago + 5 cupom ESC/POS) |
 | `npm run test:sql` | Aprovado: schema, pedidos, cupom, histórico, pagamentos, impressão e RLS |
 | `deno check` nas 4 Edge Functions | Aprovado com Deno 2.9.6 |
+| `npm install` em `print-agent/` | Aprovado, 0 vulnerabilidades |
+| Import de `escpos.mjs` e `node-thermal-printer` | Aprovado |
 | `npm run build` | Aprovado |
 
 ### O que os testes cobrem
@@ -210,8 +212,10 @@ Impressão:
 
 - Build local: aprovado (`dist/`).
 - Pipeline do GitHub Actions: preservado e ampliado com `test:integrations`.
-- Publicação no GitHub Pages: depende de commit/push e do workflow; ver observação abaixo.
-- Site esperado: <https://startupcortex-hallen.github.io/bompapoxa/>.
+- Commit publicado: `2508e2b` (`feat: integra mercado pago e impressao automatica`).
+- Workflow: <https://github.com/startupcortex-Hallen/bompapoxa/actions/runs/44381156230> — **success**.
+- Site publicado: <https://startupcortex-hallen.github.io/bompapoxa/> — HTTP 200.
+- O deploy do frontend foi concluído. A ativação funcional do Mercado Pago e da impressão continua dependendo das etapas de backend abaixo.
 
 ### Observação de publicação
 
@@ -238,6 +242,6 @@ A barra flutuante da sacola foi movida para um `createPortal` no `document.body`
 5. Executar compra Sandbox real de PIX e cartão.
 6. Ativar o gateway no painel.
 7. Conectar impressora física e homologar 58/80 mm, USB/rede, desligamento e reconexão.
-8. Publicar o frontend e validar o fluxo no domínio do GitHub Pages.
+8. O frontend foi publicado, mas o fluxo online ainda não pode ser validado em produção sem a migration/Edge Functions/credenciais.
 
 Nenhuma dessas pendências foi declarada como concluída.
