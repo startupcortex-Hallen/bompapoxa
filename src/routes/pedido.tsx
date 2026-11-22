@@ -289,7 +289,11 @@ function Acompanhamento({
               <p className="mt-2 text-2xl font-semibold">{moedaBRL(pedido.total)}</p>
             </div>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">{STATUS_DESCRICAO[pedido.status]}</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {pedido.status === "novo" && temPagamentoOnline && pedido.status_pagamento !== "pago"
+              ? "Aguardando a confirmação do pagamento pela InfinitePay."
+              : STATUS_DESCRICAO[pedido.status]}
+          </p>
         </div>
 
         {pedido.status === "cancelado" ? (

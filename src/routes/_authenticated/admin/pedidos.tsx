@@ -136,6 +136,14 @@ function PedidosPage() {
 
   const mudarStatus = async (pedido: Pedido, status: StatusPedido) => {
     if (status === "cancelado" && !window.confirm(`Cancelar o pedido #${pedido.numero}?`)) return;
+    if (
+      status !== "cancelado" &&
+      pedido.pagamento_provedor === "infinitepay" &&
+      pedido.status_pagamento !== "pago"
+    ) {
+      toast.error("Aguarde a confirmação do pagamento online pela InfinitePay.");
+      return;
+    }
     try {
       await atualizarStatusPedido(pedido.id, status);
       toast.success(`Pedido #${pedido.numero}: ${STATUS_LABEL[status].toLowerCase()}.`);
@@ -315,7 +323,11 @@ function PedidosPage() {
       ) : lista.length ? (
         <div className="space-y-2">
           {lista.map((pedido) => {
-            const proximos = proximosStatus(pedido).filter((status) => status !== "cancelado");
+            const pagamentoOnlinePendente =
+              pedido.pagamento_provedor === "infinitepay" && pedido.status_pagamento !== "pago";
+            const proximos = proximosStatus(pedido).filter(
+              (status) => status !== "cancelado" && !pagamentoOnlinePendente,
+            );
             const podeCancelar = !["entregue", "retirado", "cancelado"].includes(pedido.status);
             return (
               <article key={pedido.id} className="rounded-2xl border border-border bg-card p-4">
@@ -351,7 +363,7 @@ function PedidosPage() {
                       {ROTULO_ACAO[status]} <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   ))}
-                  {impressora.printer ? (
+                  {impressora.printer && !pagamentoOnlinePendente ? (
                     <Button size="sm" variant="outline" onClick={() => void imprimirNoBluetooth(pedido)}>
                       <Bluetooth className="h-3.5 w-3.5" /> Imprimir {impressora.width} mm
                     </Button>
@@ -494,6 +506,11 @@ function DetalhePedido({
               ? `${metodoPagamentoLabel(pedido.forma_pagamento, "infinitepay", pedido.pagamento_online_tipo)} • ${PAGAMENTO_STATUS_LABEL[pedido.pagamento.status]}`
               : "InfinitePay sem registro de pagamento online."}
           </p>
+          {pedido.pagamento_provedor === "infinitepay" && pedido.status_pagamento !== "pago" ? (
+            <p className="mt-2 rounded-lg bg-accent/10 px-3 py-2 text-xs text-accent">
+              Aguardando a confirmação da InfinitePay. Iniciar preparo e imprimir são liberados após o pagamento.
+            </p>
+          ) : null}
           {pedido.pagamento?.ultimo_erro ? (
             <p className="mt-1 text-xs text-danger">{pedido.pagamento.ultimo_erro}</p>
           ) : null}
@@ -548,11 +565,17 @@ function DetalhePedido({
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-        {proximosStatus(pedido).filter((status) => status !== "cancelado").map((status) => (
-          <Button key={status} onClick={() => aoMudarStatus(status)}>
-            <CheckCircle2 className="h-4 w-4" /> {ROTULO_ACAO[status]}
-          </Button>
-        ))}
+        {proximosStatus(pedido)
+          .filter(
+            (status) =>
+              status !== "cancelado" &&
+              !(pedido.pagamento_provedor === "infinitepay" && pedido.status_pagamento !== "pago"),
+          )
+          .map((status) => (
+            <Button key={status} onClick={() => aoMudarStatus(status)}>
+              <CheckCircle2 className="h-4 w-4" /> {ROTULO_ACAO[status]}
+            </Button>
+          ))}
         {pedido.pagamento_provedor === "infinitepay" && pedido.status !== "cancelado" ? (
           <Button variant="outline" onClick={aoVerificarPagamento}>
             <RefreshCw className="h-4 w-4" /> Verificar pagamento
@@ -565,7 +588,15 @@ function DetalhePedido({
             <XCircle className="h-4 w-4" /> Cancelar pedido
           </Button>
         ) : null}
-        <Button variant="outline" className="ml-auto" onClick={() => void imprimirBluetooth()} disabled={imprimindo}>
+        <Button
+          variant="outline"
+          className="ml-auto"
+          onClick={() => void imprimirBluetooth()}
+          disabled={
+            imprimindo ||
+            (pedido.pagamento_provedor === "infinitepay" && pedido.status_pagamento !== "pago")
+          }
+        >
           <Bluetooth className="h-4 w-4" /> {imprimindo ? "Enviando…" : "Imprimir Bluetooth"}
         </Button>
         <Button variant="outline" onClick={aoReimprimir}>
