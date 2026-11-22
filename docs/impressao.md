@@ -95,8 +95,9 @@ Conteúdo:
 - Endereço de entrega completo ou endereço da loja para retirada.
 - Forma de pagamento, detalhado como:
   - PIX manual;
-  - PIX online (Mercado Pago);
-  - Cartão online (Mercado Pago);
+  - PIX online (InfinitePay);
+  - Cartão online (InfinitePay);
+  - Pagamento online (InfinitePay);
   - Cartão na máquina;
   - Dinheiro.
 - Situação real do pagamento.

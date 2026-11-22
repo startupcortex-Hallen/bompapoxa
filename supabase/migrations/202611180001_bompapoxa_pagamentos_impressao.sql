@@ -1,8 +1,8 @@
--- BOM PA POXA — pagamentos online Mercado Pago + fila de impressão ESC/POS.
+-- BOM PA POXA — pagamentos online InfinitePay + fila de impressão ESC/POS.
 -- Migração não destrutiva. Todos os objetos usam o prefixo cardapio_exemplo_.
 
 -- ---------------------------------------------------------------------------
--- 1. Pedido: origem do pagamento (manual x Mercado Pago)
+-- 1. Pedido: origem do pagamento (manual x InfinitePay)
 -- ---------------------------------------------------------------------------
 
 alter table public.cardapio_exemplo_pedidos
@@ -20,7 +20,7 @@ begin
   ) then
     alter table public.cardapio_exemplo_pedidos
       add constraint cardapio_exemplo_pedidos_pagamento_provedor_check
-      check (pagamento_provedor in ('manual', 'mercadopago'));
+      check (pagamento_provedor in ('manual', 'infinitepay'));
   end if;
 
   if not exists (
@@ -30,7 +30,7 @@ begin
   ) then
     alter table public.cardapio_exemplo_pedidos
       add constraint cardapio_exemplo_pedidos_pagamento_online_tipo_check
-      check (pagamento_online_tipo is null or pagamento_online_tipo in ('pix', 'cartao'));
+      check (pagamento_online_tipo is null or pagamento_online_tipo in ('online', 'pix', 'cartao'));
   end if;
 end;
 $$;
@@ -44,9 +44,7 @@ create index if not exists cardapio_exemplo_pedidos_pagamento_provedor_idx
 
 create table if not exists public.cardapio_exemplo_pagamento_config (
   id smallint primary key default 1 check (id = 1),
-  mercadopago_ativo boolean not null default false,
-  pix_online_ativo boolean not null default true,
-  cartao_online_ativo boolean not null default true,
+  infinitepay_ativo boolean not null default false,
   ultimo_teste_ok boolean not null default false,
   ultimo_teste_em timestamptz,
   ultimo_teste_ambiente text,
@@ -71,25 +69,26 @@ create trigger cardapio_exemplo_tg_pagamento_config_updated
 create table if not exists public.cardapio_exemplo_pagamentos (
   id uuid primary key default gen_random_uuid(),
   pedido_id uuid not null unique references public.cardapio_exemplo_pedidos(id) on delete cascade,
-  provedor text not null default 'mercadopago' check (provedor = 'mercadopago'),
-  ambiente text not null check (ambiente in ('sandbox', 'producao')),
-  tipo text not null check (tipo in ('pix', 'cartao')),
+  provedor text not null default 'infinitepay'
+    constraint cardapio_exemplo_pagamentos_provedor_check check (provedor = 'infinitepay'),
+  ambiente text not null default 'producao'
+    constraint cardapio_exemplo_pagamentos_ambiente_check check (ambiente in ('sandbox', 'producao')),
+  tipo text not null default 'online'
+    constraint cardapio_exemplo_pagamentos_tipo_check check (tipo in ('online', 'pix', 'cartao')),
   status text not null default 'pendente'
+    constraint cardapio_exemplo_pagamentos_status_check
     check (status in ('pendente', 'em_processamento', 'aprovado', 'recusado', 'cancelado', 'expirado', 'estornado', 'erro')),
-  status_mp text,
+  status_gateway text,
   metodo text,
   valor numeric(10,2) not null check (valor >= 0),
   moeda text not null default 'BRL' check (char_length(moeda) = 3),
-  mp_order_id text,
-  mp_payment_id text,
-  mp_preference_id text,
-  mp_external_reference text not null,
+  gateway_order_id text,
+  gateway_payment_id text,
+  gateway_checkout_id text,
+  gateway_external_reference text not null,
   idempotency_key text not null unique,
-  qr_code text,
-  qr_code_base64 text,
-  ticket_url text,
-  init_point text,
-  sandbox_init_point text,
+  checkout_url text,
+  receipt_url text,
   ultimo_erro text,
   aprovado_em timestamptz,
   expirado_em timestamptz,
@@ -100,12 +99,12 @@ create table if not exists public.cardapio_exemplo_pagamentos (
 
 create index if not exists cardapio_exemplo_pagamentos_status_idx
   on public.cardapio_exemplo_pagamentos (status, created_at desc);
-create index if not exists cardapio_exemplo_pagamentos_mp_order_idx
-  on public.cardapio_exemplo_pagamentos (mp_order_id);
-create index if not exists cardapio_exemplo_pagamentos_mp_payment_idx
-  on public.cardapio_exemplo_pagamentos (mp_payment_id);
-create index if not exists cardapio_exemplo_pagamentos_preference_idx
-  on public.cardapio_exemplo_pagamentos (mp_preference_id);
+create index if not exists cardapio_exemplo_pagamentos_gateway_order_idx
+  on public.cardapio_exemplo_pagamentos (gateway_order_id);
+create index if not exists cardapio_exemplo_pagamentos_gateway_payment_idx
+  on public.cardapio_exemplo_pagamentos (gateway_payment_id);
+create index if not exists cardapio_exemplo_pagamentos_gateway_checkout_idx
+  on public.cardapio_exemplo_pagamentos (gateway_checkout_id);
 
 drop trigger if exists cardapio_exemplo_tg_pagamentos_updated on public.cardapio_exemplo_pagamentos;
 create trigger cardapio_exemplo_tg_pagamentos_updated
@@ -129,13 +128,13 @@ create index if not exists cardapio_exemplo_pagamento_eventos_pedido_idx
 
 create table if not exists public.cardapio_exemplo_webhooks_processados (
   id uuid primary key default gen_random_uuid(),
-  provedor text not null default 'mercadopago',
+  provedor text not null default 'infinitepay',
   topico text not null,
   recurso_id text,
   acao text,
   evento_key text not null unique,
   request_id text,
-  assinatura_valida boolean not null default false,
+  verificado boolean not null default false,
   status text not null default 'recebido'
     check (status in ('recebido', 'processando', 'processado', 'ignorado', 'erro')),
   tentativas integer not null default 1 check (tentativas >= 1),
@@ -244,13 +243,15 @@ as $$
     'pagamento_status', p.status_pagamento,
     'pagamento_online', (
       select jsonb_build_object(
+        'provedor', pg.provedor,
         'status', pg.status,
-        'status_mp', pg.status_mp,
+        'status_gateway', pg.status_gateway,
         'tipo', pg.tipo,
         'metodo', pg.metodo,
-        'mp_order_id', pg.mp_order_id,
-        'mp_payment_id', pg.mp_payment_id,
-        'ticket_url', pg.ticket_url
+        'gateway_order_id', pg.gateway_order_id,
+        'gateway_payment_id', pg.gateway_payment_id,
+        'gateway_checkout_id', pg.gateway_checkout_id,
+        'receipt_url', pg.receipt_url
       )
       from public.cardapio_exemplo_pagamentos pg
       where pg.pedido_id = p.id
@@ -356,9 +357,8 @@ security definer
 set search_path = public, pg_temp
 as $$
   select jsonb_build_object(
-    'mercadopago_ativo', c.mercadopago_ativo,
-    'pix_online', c.mercadopago_ativo and c.pix_online_ativo,
-    'cartao_online', c.mercadopago_ativo and c.cartao_online_ativo
+    'infinitepay_ativo', c.infinitepay_ativo,
+    'online_ativo', c.infinitepay_ativo
   )
   from public.cardapio_exemplo_pagamento_config c
   where c.id = 1;
@@ -423,15 +423,17 @@ as $$
     'pagamento', (
       select jsonb_build_object(
         'id', pg.id,
+        'provedor', pg.provedor,
         'tipo', pg.tipo,
         'status', pg.status,
-        'status_mp', pg.status_mp,
+        'status_gateway', pg.status_gateway,
         'metodo', pg.metodo,
         'valor', pg.valor,
-        'qr_code', pg.qr_code,
-        'qr_code_base64', pg.qr_code_base64,
-        'ticket_url', pg.ticket_url,
-        'init_point', pg.init_point,
+        'gateway_order_id', pg.gateway_order_id,
+        'gateway_payment_id', pg.gateway_payment_id,
+        'gateway_checkout_id', pg.gateway_checkout_id,
+        'checkout_url', pg.checkout_url,
+        'receipt_url', pg.receipt_url,
         'erro', pg.ultimo_erro,
         'atualizado_em', pg.updated_at
       )

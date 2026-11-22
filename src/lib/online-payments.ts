@@ -2,15 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { mapPagamento } from "./mappers";
 import type {
   Pagamento,
-  PagamentoTipo,
   ResultadoPagamentoOnline,
-  StatusIntegracaoMercadoPago,
+  StatusIntegracaoInfinitepay,
 } from "./types";
 
 type RespostaEdge = {
   error?: string;
   ok?: boolean;
-  tipo?: PagamentoTipo;
+  tipo?: Pagamento["tipo"];
   status?: string;
   checkoutUrl?: string | null;
   pagamento?: Record<string, unknown> | null;
@@ -91,18 +90,16 @@ function normalizarPagamento(
 export async function iniciarPagamentoOnline({
   pedidoId,
   trackingToken,
-  tipo,
 }: {
   pedidoId: string;
   trackingToken: string;
-  tipo: PagamentoTipo;
 }): Promise<ResultadoPagamentoOnline> {
-  const dados = await chamarEdge("mercadopago-create-payment", { pedidoId, trackingToken, tipo });
+  const dados = await chamarEdge("infinitepay-create-payment", { pedidoId, trackingToken });
   return {
     ok: dados.ok !== false,
     jaPago: dados.jaPago,
     reutilizado: dados.reutilizado,
-    tipo: dados.tipo ?? tipo,
+    tipo: dados.tipo ?? "online",
     status: (dados.pagamento?.status as ResultadoPagamentoOnline["status"]) ?? "pendente",
     checkoutUrl: dados.checkoutUrl ?? null,
     pagamento: normalizarPagamento(dados.pagamento, pedidoId),
@@ -114,15 +111,31 @@ export async function sincronizarPagamentoOnline({
   pedidoId,
   trackingToken,
   forcar = false,
+  transactionNsu,
+  slug,
+  captureMethod,
+  receiptUrl,
 }: {
   pedidoId: string;
   trackingToken: string;
   forcar?: boolean;
+  transactionNsu?: string | null;
+  slug?: string | null;
+  captureMethod?: string | null;
+  receiptUrl?: string | null;
 }): Promise<ResultadoPagamentoOnline> {
-  const dados = await chamarEdge("mercadopago-sync-payment", { pedidoId, trackingToken, forcar });
+  const dados = await chamarEdge("infinitepay-sync-payment", {
+    pedidoId,
+    trackingToken,
+    forcar,
+    transactionNsu,
+    slug,
+    captureMethod,
+    receiptUrl,
+  });
   return {
     ok: dados.ok !== false,
-    tipo: dados.tipo ?? "pix",
+    tipo: dados.tipo ?? "online",
     status: (dados.pagamento?.status as ResultadoPagamentoOnline["status"]) ?? "pendente",
     checkoutUrl: dados.checkoutUrl ?? null,
     pagamento: normalizarPagamento(dados.pagamento, pedidoId),
@@ -131,6 +144,6 @@ export async function sincronizarPagamentoOnline({
   };
 }
 
-export async function consultarStatusMercadoPago(check = false): Promise<StatusIntegracaoMercadoPago> {
-  return chamarEdge<StatusIntegracaoMercadoPago & RespostaEdge>("mercadopago-admin-status", { check }, true);
+export async function consultarStatusInfinitepay(check = false): Promise<StatusIntegracaoInfinitepay> {
+  return chamarEdge<StatusIntegracaoInfinitepay & RespostaEdge>("infinitepay-admin-status", { check }, true);
 }

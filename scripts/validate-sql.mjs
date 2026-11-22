@@ -8,6 +8,7 @@ const migrations = [
   "supabase/migrations/202611170003_bompapoxa_tipografia_cinema.sql",
   "supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql",
   "supabase/migrations/202611180001_bompapoxa_pagamentos_impressao.sql",
+  "supabase/migrations/202611190001_bompapoxa_infinitepay.sql",
 ];
 const db = new PGlite();
 
@@ -319,8 +320,8 @@ const pagamentoPublicoInicial = await as("anon", null, async () => {
   const resposta = await db.query("select public.cardapio_exemplo_pagamento_publico() as config");
   return resposta.rows[0].config;
 });
-assert.equal(pagamentoPublicoInicial.mercadopago_ativo, false);
-assert.equal(pagamentoPublicoInicial.pix_online, false);
+assert.equal(pagamentoPublicoInicial.infinitepay_ativo, false);
+assert.equal(pagamentoPublicoInicial.online_ativo, false);
 
 const impressora = await as("authenticated", adminId, async () => {
   const resposta = await db.query(
@@ -405,23 +406,29 @@ assert.match(inserirFilaCliente, /^negado:/, "cliente não pode inserir trabalho
 
 await db.exec(`
   insert into public.cardapio_exemplo_pagamentos
-    (pedido_id, ambiente, tipo, status, status_mp, metodo, valor, mp_order_id, mp_payment_id,
-     mp_external_reference, idempotency_key, qr_code, qr_code_base64)
+    (pedido_id, ambiente, tipo, status, status_gateway, metodo, valor, gateway_order_id,
+     gateway_payment_id, gateway_checkout_id, gateway_external_reference, idempotency_key,
+     checkout_url, receipt_url)
   values
-    ('${criado.pedido_id}', 'sandbox', 'pix', 'pendente', 'action_required', 'pix', 114.12,
-     'ORD_TESTE_1', 'PAY_TESTE_1', 'bompapoxa:${criado.pedido_id}', 'idem-teste-1',
-     '00020126580014br.gov.bcb.pix', 'iVBORw0KGgoAAAANSUhEUg');
+    ('${criado.pedido_id}', 'producao', 'online', 'pendente', 'link_criado', 'checkout', 114.12,
+     '${criado.pedido_id}', 'TX_TESTE_1', 'SLUG_TESTE_1', 'bompapoxa:${criado.pedido_id}',
+     'idem-teste-1', 'https://checkout.infinitepay.com.br/shop?lenc=teste',
+     'https://comprovante.example.com/teste');
 
   update public.cardapio_exemplo_pagamentos
-  set status = 'aprovado', status_mp = 'processed', aprovado_em = now()
+  set status = 'aprovado', status_gateway = 'paid', tipo = 'pix', aprovado_em = now()
   where pedido_id = '${criado.pedido_id}';
 
   update public.cardapio_exemplo_pedidos
-  set pagamento_provedor = 'mercadopago', pagamento_online_tipo = 'pix', status_pagamento = 'pago'
+  set pagamento_provedor = 'infinitepay', pagamento_online_tipo = 'online'
+  where id = '${criado.pedido_id}';
+
+  update public.cardapio_exemplo_pedidos
+  set pagamento_online_tipo = 'pix', status_pagamento = 'pago'
   where id = '${criado.pedido_id}';
 
   update public.cardapio_exemplo_pagamento_config
-  set mercadopago_ativo = true, pix_online_ativo = true, cartao_online_ativo = true
+  set infinitepay_ativo = true
   where id = 1;
 `);
 
@@ -432,19 +439,19 @@ const consultaPagamento = await db.query(
 const payloadPagamento = typeof consultaPagamento.rows[0].cardapio_exemplo_get_pedido === "string"
   ? JSON.parse(consultaPagamento.rows[0].cardapio_exemplo_get_pedido)
   : consultaPagamento.rows[0].cardapio_exemplo_get_pedido;
-assert.equal(payloadPagamento.pagamento_provedor, "mercadopago");
+assert.equal(payloadPagamento.pagamento_provedor, "infinitepay");
 assert.equal(payloadPagamento.pagamento_online_tipo, "pix");
 assert.equal(payloadPagamento.pagamento.status, "aprovado");
 assert.equal(payloadPagamento.pagamento.tipo, "pix");
-assert.equal(payloadPagamento.pagamento.qr_code, "00020126580014br.gov.bcb.pix");
+assert.equal(payloadPagamento.pagamento.gateway_payment_id, "TX_TESTE_1");
+assert.equal(payloadPagamento.pagamento.checkout_url, "https://checkout.infinitepay.com.br/shop?lenc=teste");
 
 const pagamentoPublicoAtivo = await as("anon", null, async () => {
   const resposta = await db.query("select public.cardapio_exemplo_pagamento_publico() as config");
   return resposta.rows[0].config;
 });
-assert.equal(pagamentoPublicoAtivo.mercadopago_ativo, true);
-assert.equal(pagamentoPublicoAtivo.pix_online, true);
-assert.equal(pagamentoPublicoAtivo.cartao_online, true);
+assert.equal(pagamentoPublicoAtivo.infinitepay_ativo, true);
+assert.equal(pagamentoPublicoAtivo.online_ativo, true);
 
 assert.match(
   String(await contar("cardapio_exemplo_pagamentos", "anon", null)),
@@ -463,5 +470,123 @@ const alterarPagamentoCliente = await as("authenticated", clientId, async () => 
 });
 assert.match(alterarPagamentoCliente, /^negado:/, "cliente não pode aprovar pagamento diretamente");
 
+// ---------------------------------------------------------------------------
+// Transição de um banco no formato antigo para o novo gateway
+// ---------------------------------------------------------------------------
+
+await db.exec(`
+  alter table public.cardapio_exemplo_pagamento_config
+    rename column infinitepay_ativo to mercadopago_ativo;
+  alter table public.cardapio_exemplo_pagamento_config
+    add column pix_online_ativo boolean not null default true;
+  alter table public.cardapio_exemplo_pagamento_config
+    add column cartao_online_ativo boolean not null default true;
+  update public.cardapio_exemplo_pagamento_config
+  set mercadopago_ativo = true, pix_online_ativo = true, cartao_online_ativo = true,
+      ultimo_teste_ok = true
+  where id = 1;
+
+  alter table public.cardapio_exemplo_webhooks_processados
+    rename column verificado to assinatura_valida;
+
+  alter table public.cardapio_exemplo_pagamentos
+    drop constraint if exists cardapio_exemplo_pagamentos_provedor_check;
+  alter table public.cardapio_exemplo_pagamentos
+    drop constraint if exists cardapio_exemplo_pagamentos_tipo_check;
+  alter table public.cardapio_exemplo_pedidos
+    drop constraint if exists cardapio_exemplo_pedidos_pagamento_provedor_check;
+  alter table public.cardapio_exemplo_pedidos
+    drop constraint if exists cardapio_exemplo_pedidos_pagamento_online_tipo_check;
+
+  alter table public.cardapio_exemplo_pagamentos rename column status_gateway to status_mp;
+  alter table public.cardapio_exemplo_pagamentos rename column gateway_order_id to mp_order_id;
+  alter table public.cardapio_exemplo_pagamentos rename column gateway_payment_id to mp_payment_id;
+  alter table public.cardapio_exemplo_pagamentos rename column gateway_checkout_id to mp_preference_id;
+  alter table public.cardapio_exemplo_pagamentos rename column gateway_external_reference to mp_external_reference;
+  alter table public.cardapio_exemplo_pagamentos rename column checkout_url to init_point;
+  alter table public.cardapio_exemplo_pagamentos drop column if exists receipt_url;
+  alter table public.cardapio_exemplo_pagamentos
+    add column qr_code text,
+    add column qr_code_base64 text,
+    add column ticket_url text,
+    add column sandbox_init_point text;
+
+  update public.cardapio_exemplo_pagamentos
+  set provedor = 'mercadopago', qr_code = '00020126580014br.gov.bcb.pix'
+  where pedido_id = '${criado.pedido_id}';
+
+  update public.cardapio_exemplo_pedidos
+  set pagamento_provedor = 'mercadopago', pagamento_online_tipo = 'pix'
+  where id = '${criado.pedido_id}';
+
+  alter table public.cardapio_exemplo_pagamentos
+    add constraint cardapio_exemplo_pagamentos_provedor_check check (provedor = 'mercadopago');
+  alter table public.cardapio_exemplo_pagamentos
+    add constraint cardapio_exemplo_pagamentos_tipo_check check (tipo in ('pix', 'cartao'));
+  alter table public.cardapio_exemplo_pedidos
+    add constraint cardapio_exemplo_pedidos_pagamento_provedor_check
+    check (pagamento_provedor in ('manual', 'mercadopago'));
+  alter table public.cardapio_exemplo_pedidos
+    add constraint cardapio_exemplo_pedidos_pagamento_online_tipo_check
+    check (pagamento_online_tipo is null or pagamento_online_tipo in ('pix', 'cartao'));
+
+  insert into public.cardapio_exemplo_webhooks_processados
+    (provedor, topico, evento_key, assinatura_valida, status, payload_resumo)
+  values
+    ('mercadopago', 'payment', 'legado|${criado.pedido_id}', true, 'processado', '{}'::jsonb);
+
+  insert into public.cardapio_exemplo_pagamento_eventos
+    (pagamento_id, pedido_id, origem, evento)
+  select id, pedido_id, 'webhook', 'legado'
+  from public.cardapio_exemplo_pagamentos
+  where pedido_id = '${criado.pedido_id}';
+`);
+
+await db.exec(fs.readFileSync("supabase/migrations/202611190001_bompapoxa_infinitepay.sql", "utf8"));
+
+const colunasPagamento = await db.query(`
+  select column_name from information_schema.columns
+  where table_schema = 'public' and table_name = 'cardapio_exemplo_pagamentos'
+`);
+const nomesColunas = colunasPagamento.rows.map((row) => row.column_name);
+assert.ok(nomesColunas.includes("gateway_payment_id"), "transição deve criar gateway_payment_id");
+assert.ok(nomesColunas.includes("checkout_url"), "transição deve criar checkout_url");
+assert.ok(nomesColunas.includes("receipt_url"), "transição deve criar receipt_url");
+assert.ok(!nomesColunas.includes("mp_payment_id"), "transição deve remover mp_payment_id");
+assert.ok(!nomesColunas.includes("qr_code"), "transição deve remover qr_code");
+assert.ok(!nomesColunas.includes("init_point"), "transição deve remover init_point");
+
+const configTransicao = await db.query("select * from public.cardapio_exemplo_pagamento_config where id = 1");
+assert.equal(configTransicao.rows[0].infinitepay_ativo, false, "transição deve exigir nova ativação");
+assert.equal(configTransicao.rows[0].ultimo_teste_ok, false, "transição deve exigir novo teste");
+assert.equal("mercadopago_ativo" in configTransicao.rows[0], false, "coluna antiga deve sair");
+
+const webhooksRestantes = await db.query(
+  "select count(*)::int as total from public.cardapio_exemplo_webhooks_processados where provedor = 'mercadopago'",
+);
+assert.equal(webhooksRestantes.rows[0].total, 0, "webhooks do provedor antigo devem ser removidos");
+
+const colunasWebhook = await db.query(`
+  select column_name from information_schema.columns
+  where table_schema = 'public' and table_name = 'cardapio_exemplo_webhooks_processados'
+`);
+const nomesWebhook = colunasWebhook.rows.map((row) => row.column_name);
+assert.ok(nomesWebhook.includes("verificado"), "transição deve criar verificado");
+assert.ok(!nomesWebhook.includes("assinatura_valida"), "transição deve remover assinatura_valida");
+
+const pagamentosRestantes = await db.query(
+  "select count(*)::int as total from public.cardapio_exemplo_pagamentos where pedido_id = $1",
+  [criado.pedido_id],
+);
+assert.equal(pagamentosRestantes.rows[0].total, 0, "tentativas do provedor antigo devem ser removidas");
+
+const pedidoTransicao = await db.query(
+  "select pagamento_provedor, pagamento_online_tipo, status_pagamento from public.cardapio_exemplo_pedidos where id = $1",
+  [criado.pedido_id],
+);
+assert.equal(pedidoTransicao.rows[0].pagamento_provedor, "manual");
+assert.equal(pedidoTransicao.rows[0].pagamento_online_tipo, null);
+assert.equal(pedidoTransicao.rows[0].status_pagamento, "pago", "status financeiro do pedido deve ser preservado");
+
 await db.close();
-console.log("Validação SQL concluída: schema, pedidos, cupom, histórico, pagamentos, impressão e RLS aprovados.");
+console.log("Validação SQL concluída: schema, pedidos, cupom, histórico, pagamentos, transição, impressão e RLS aprovados.");

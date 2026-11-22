@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:sql": "node scripts/validate-sql.mjs",
-    "test:integrations": "node --test supabase/functions/_shared/mp-core.test.mjs print-agent/test/format-ticket.test.mjs",
+    "test:integrations": "node --test supabase/functions/_shared/infinitepay-core.test.mjs print-agent/test/format-ticket.test.mjs",
     "test:agent": "node --test print-agent/test/format-ticket.test.mjs",
     "format": "prettier --write ."
   },

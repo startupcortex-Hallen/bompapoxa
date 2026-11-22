@@ -1,6 +1,5 @@
 import { getAdminClient } from "./supabase-admin.mjs";
-import { getMpConfig } from "./mp-api.mjs";
-import { amountsMatch, safeErrorMessage } from "./mp-core.mjs";
+import { amountsMatchCents, parseOrderNsu, safeErrorMessage } from "./infinitepay-core.mjs";
 
 export class PaymentError extends Error {
   constructor(message, status = 400) {
@@ -25,16 +24,10 @@ export async function carregarConfigPagamento() {
   return data;
 }
 
-export async function validarOnlineHabilitado(tipo) {
+export async function validarOnlineHabilitado() {
   const config = await carregarConfigPagamento();
-  if (!config?.mercadopago_ativo) {
+  if (!config?.infinitepay_ativo) {
     throw new PaymentError("Pagamento online desativado no painel.", 409);
-  }
-  if (tipo === "pix" && !config.pix_online_ativo) {
-    throw new PaymentError("PIX online desativado no painel.", 409);
-  }
-  if (tipo === "cartao" && !config.cartao_online_ativo) {
-    throw new PaymentError("Cartão online desativado no painel.", 409);
   }
   return config;
 }
@@ -79,16 +72,13 @@ export async function carregarPagamentoDoPedido(pedidoId) {
 function limparCamposNovaTentativa() {
   return {
     status: "pendente",
-    status_mp: null,
+    status_gateway: null,
     metodo: null,
-    mp_order_id: null,
-    mp_payment_id: null,
-    mp_preference_id: null,
-    qr_code: null,
-    qr_code_base64: null,
-    ticket_url: null,
-    init_point: null,
-    sandbox_init_point: null,
+    gateway_order_id: null,
+    gateway_payment_id: null,
+    gateway_checkout_id: null,
+    checkout_url: null,
+    receipt_url: null,
     ultimo_erro: null,
     aprovado_em: null,
     expirado_em: null,
@@ -96,7 +86,7 @@ function limparCamposNovaTentativa() {
   };
 }
 
-export async function criarOuReutilizarTentativa({ pedido, tipo, ambiente, tentativa = 0 }) {
+export async function criarOuReutilizarTentativa({ pedido, ambiente = "producao", tipo = "online", tentativa = 0 }) {
   const admin = getAdminClient();
   const existente = await carregarPagamentoDoPedido(pedido.id);
 
@@ -105,10 +95,12 @@ export async function criarOuReutilizarTentativa({ pedido, tipo, ambiente, tenta
       return { pagamento: existente, reutilizado: true, jaPago: true };
     }
     if (existente.status === "pendente" || existente.status === "em_processamento") {
-      if (existente.tipo !== tipo) {
-        throw new PaymentError("Já existe um pagamento online pendente para este pedido. Conclua ou aguarde a expiração.", 409);
+      const referencia = existente.updated_at || existente.created_at;
+      const idadeMs = referencia ? Date.now() - new Date(referencia).getTime() : 0;
+      const linkExpirado = idadeMs > 35 * 60 * 1000;
+      if (!linkExpirado) {
+        return { pagamento: existente, reutilizado: true, jaPago: false };
       }
-      return { pagamento: existente, reutilizado: true, jaPago: false };
     }
 
     const patch = {
@@ -117,7 +109,7 @@ export async function criarOuReutilizarTentativa({ pedido, tipo, ambiente, tenta
       tipo,
       valor: Number(pedido.total),
       moeda: "BRL",
-      mp_external_reference: `bompapoxa:${pedido.id}`,
+      gateway_external_reference: `bompapoxa:${pedido.id}`,
       idempotency_key: crypto.randomUUID(),
     };
     const { data, error } = await admin
@@ -136,7 +128,7 @@ export async function criarOuReutilizarTentativa({ pedido, tipo, ambiente, tenta
     tipo,
     valor: Number(pedido.total),
     moeda: "BRL",
-    mp_external_reference: `bompapoxa:${pedido.id}`,
+    gateway_external_reference: `bompapoxa:${pedido.id}`,
     idempotency_key: crypto.randomUUID(),
     ...limparCamposNovaTentativa(),
   };
@@ -148,18 +140,18 @@ export async function criarOuReutilizarTentativa({ pedido, tipo, ambiente, tenta
 
   if (error) {
     if (error.code === "23505" && tentativa < 1) {
-      return criarOuReutilizarTentativa({ pedido, tipo, ambiente, tentativa: tentativa + 1 });
+      return criarOuReutilizarTentativa({ pedido, ambiente, tipo, tentativa: tentativa + 1 });
     }
     throw new PaymentError(safeErrorMessage(error), 500);
   }
   return { pagamento: data, reutilizado: false, jaPago: false };
 }
 
-export async function marcarPedidoComProvedor(pedidoId, tipo) {
+export async function marcarPedidoComProvedor(pedidoId, tipo = "online") {
   const admin = getAdminClient();
   const { error } = await admin
     .from("cardapio_exemplo_pedidos")
-    .update({ pagamento_provedor: "mercadopago", pagamento_online_tipo: tipo })
+    .update({ pagamento_provedor: "infinitepay", pagamento_online_tipo: tipo })
     .eq("id", pedidoId);
   if (error) throw new PaymentError("Não foi possível atualizar a origem do pagamento.", 500);
 }
@@ -176,17 +168,6 @@ export async function atualizarPagamento(pagamentoId, patch) {
   return data;
 }
 
-/**
- * @param {{
- *   pagamentoId?: string | null,
- *   pedidoId?: string | null,
- *   origem: string,
- *   evento: string,
- *   statusAnterior?: string | null,
- *   statusNovo?: string | null,
- *   detalhe?: Record<string, unknown>
- * }} entrada
- */
 export async function registrarEvento({
   pagamentoId = null,
   pedidoId = null,
@@ -226,9 +207,8 @@ export async function carregarRecursoParaWebhook(normalized) {
   let pedido = null;
   let pagamento = null;
 
-  const referencia = String(normalized.externalReference ?? "");
-  if (referencia.startsWith("bompapoxa:")) {
-    const pedidoId = referencia.slice("bompapoxa:".length);
+  const pedidoId = parseOrderNsu(normalized.orderNsu);
+  if (pedidoId) {
     const { data: pedidoData, error: pedidoError } = await admin
       .from("cardapio_exemplo_pedidos")
       .select("*")
@@ -241,19 +221,19 @@ export async function carregarRecursoParaWebhook(normalized) {
   }
 
   if (!pagamento) {
-    if (normalized.mpOrderId) {
+    if (normalized.transactionNsu) {
       const { data } = await admin
         .from("cardapio_exemplo_pagamentos")
         .select("*")
-        .eq("mp_order_id", normalized.mpOrderId)
+        .eq("gateway_payment_id", normalized.transactionNsu)
         .maybeSingle();
       pagamento = data ?? null;
     }
-    if (!pagamento && normalized.mpPaymentId) {
+    if (!pagamento && normalized.slug) {
       const { data } = await admin
         .from("cardapio_exemplo_pagamentos")
         .select("*")
-        .eq("mp_payment_id", normalized.mpPaymentId)
+        .eq("gateway_checkout_id", normalized.slug)
         .maybeSingle();
       pagamento = data ?? null;
     }
@@ -263,19 +243,21 @@ export async function carregarRecursoParaWebhook(normalized) {
   return { pedido, pagamento };
 }
 
-export async function aplicarRecursoMercadoPago({ pedido, pagamento, normalized, origem, evento }) {
+export async function aplicarRecursoInfinitepay({ pedido, pagamento, normalized, origem, evento }) {
   if (!pedido || !pagamento) {
     throw new PaymentError("Pedido ou pagamento não localizado para a notificação.", 404);
   }
-  const referenciaEsperada = `bompapoxa:${pedido.id}`;
-  if (normalized.externalReference && normalized.externalReference !== referenciaEsperada) {
+
+  const referenciaEsperada = String(pedido.id);
+  const referenciaRecebida = parseOrderNsu(normalized.orderNsu ?? "");
+  if (referenciaRecebida && referenciaRecebida !== referenciaEsperada) {
     throw new PaymentError("Referência externa divergente. Notificação ignorada por segurança.", 409);
   }
-  if (normalized.amount !== null && normalized.amount !== undefined && !amountsMatch(pedido.total, normalized.amount)) {
+  if (normalized.amount !== null && normalized.amount !== undefined && !amountsMatchCents(pedido.total, normalized.amount)) {
     await marcarErroPagamento({
       pedido,
       pagamento,
-      erro: `Valor divergente: pedido R$ ${Number(pedido.total).toFixed(2)} x Mercado Pago R$ ${Number(normalized.amount).toFixed(2)}.`,
+      erro: `Valor divergente: pedido R$ ${Number(pedido.total).toFixed(2)} x InfinitePay R$ ${(Number(normalized.amount) / 100).toFixed(2)}.`,
       origem,
       evento: "valor_divergente",
     });
@@ -283,32 +265,31 @@ export async function aplicarRecursoMercadoPago({ pedido, pagamento, normalized,
   }
 
   const statusAnterior = pagamento.status;
-  const novoStatus = normalized.status;
-  const tipo = normalized.tipo || pagamento.tipo;
+  const novoStatus = normalized.status || "pendente";
+  const tipo = normalized.tipo && normalized.tipo !== "online" ? normalized.tipo : (pagamento.tipo ?? "online");
   const agoraIso = agora();
 
   const patch = {
     status: novoStatus,
-    status_mp: normalized.statusMp || null,
+    status_gateway: normalized.statusGateway ?? pagamento.status_gateway,
     metodo: normalized.metodo || pagamento.metodo,
     tipo,
-    mp_order_id: normalized.mpOrderId ?? pagamento.mp_order_id,
-    mp_payment_id: normalized.mpPaymentId ?? pagamento.mp_payment_id,
+    gateway_order_id: normalized.orderNsu ? String(normalized.orderNsu) : pagamento.gateway_order_id,
+    gateway_payment_id: normalized.transactionNsu || pagamento.gateway_payment_id,
+    gateway_checkout_id: normalized.slug || pagamento.gateway_checkout_id,
     ultimo_erro: null,
     sincronizado_em: agoraIso,
-    aprovado_em:
-      novoStatus === "aprovado" ? (pagamento.aprovado_em ?? agoraIso) : pagamento.aprovado_em,
+    aprovado_em: novoStatus === "aprovado" ? (pagamento.aprovado_em ?? agoraIso) : pagamento.aprovado_em,
     expirado_em: novoStatus === "expirado" ? agoraIso : pagamento.expirado_em,
   };
-  if (normalized.qrCode) patch.qr_code = normalized.qrCode;
-  if (normalized.qrCodeBase64) patch.qr_code_base64 = normalized.qrCodeBase64;
-  if (normalized.ticketUrl) patch.ticket_url = normalized.ticketUrl;
+  if (normalized.checkoutUrl) patch.checkout_url = normalized.checkoutUrl;
+  if (normalized.receiptUrl) patch.receipt_url = normalized.receiptUrl;
 
   const pagamentoAtualizado = await atualizarPagamento(pagamento.id, patch);
 
   const admin = getAdminClient();
   const pedidoPatch = {
-    pagamento_provedor: "mercadopago",
+    pagamento_provedor: "infinitepay",
     pagamento_online_tipo: tipo,
   };
   const pedidoCancelado = pedido.status === "cancelado";
@@ -337,10 +318,13 @@ export async function aplicarRecursoMercadoPago({ pedido, pagamento, normalized,
     statusAnterior,
     statusNovo: novoStatus,
     detalhe: {
-      status_mp: normalized.statusMp,
-      mp_order_id: normalized.mpOrderId ?? pagamento.mp_order_id,
-      mp_payment_id: normalized.mpPaymentId ?? pagamento.mp_payment_id,
+      status_gateway: normalized.statusGateway,
+      gateway_payment_id: normalized.transactionNsu || pagamento.gateway_payment_id,
+      gateway_checkout_id: normalized.slug || pagamento.gateway_checkout_id,
       valor: normalized.amount,
+      paid_amount: normalized.paidAmount,
+      parcelas: normalized.installments,
+      capture_method: normalized.captureMethod,
       pedido_cancelado: pedidoCancelado && novoStatus === "aprovado",
     },
   });
@@ -350,7 +334,7 @@ export async function aplicarRecursoMercadoPago({ pedido, pagamento, normalized,
 }
 
 export async function marcarErroPagamento({ pedido, pagamento, erro, origem, evento = "erro_integracao" }) {
-  const mensagem = safeErrorMessage(erro, "Erro na comunicação com o Mercado Pago.");
+  const mensagem = safeErrorMessage(erro, "Erro na comunicação com a InfinitePay.");
   if (pagamento) {
     try {
       await atualizarPagamento(pagamento.id, {
@@ -379,23 +363,20 @@ export function serializarPagamentoPublico(pagamento) {
   return {
     id: pagamento.id,
     pedido_id: pagamento.pedido_id,
-    provedor: "mercadopago",
+    provedor: "infinitepay",
     ambiente: pagamento.ambiente,
     tipo: pagamento.tipo,
     status: pagamento.status,
-    status_mp: pagamento.status_mp,
+    status_gateway: pagamento.status_gateway,
     metodo: pagamento.metodo,
     valor: Number(pagamento.valor),
     moeda: pagamento.moeda,
-    mp_order_id: pagamento.mp_order_id,
-    mp_payment_id: pagamento.mp_payment_id,
-    mp_preference_id: pagamento.mp_preference_id,
-    mp_external_reference: pagamento.mp_external_reference,
-    qr_code: pagamento.qr_code,
-    qr_code_base64: pagamento.qr_code_base64,
-    ticket_url: pagamento.ticket_url,
-    init_point: pagamento.init_point,
-    sandbox_init_point: pagamento.sandbox_init_point,
+    gateway_order_id: pagamento.gateway_order_id,
+    gateway_payment_id: pagamento.gateway_payment_id,
+    gateway_checkout_id: pagamento.gateway_checkout_id,
+    gateway_external_reference: pagamento.gateway_external_reference,
+    checkout_url: pagamento.checkout_url,
+    receipt_url: pagamento.receipt_url,
     ultimo_erro: pagamento.ultimo_erro,
     erro: pagamento.ultimo_erro,
     aprovado_em: pagamento.aprovado_em,
@@ -404,8 +385,4 @@ export function serializarPagamentoPublico(pagamento) {
     created_at: pagamento.created_at,
     updated_at: pagamento.updated_at,
   };
-}
-
-export function configuracaoMercadoPago() {
-  return getMpConfig();
 }

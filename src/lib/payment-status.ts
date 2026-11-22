@@ -18,24 +18,25 @@ export const PAGAMENTO_STATUS_LABEL: Record<PagamentoStatus, string> = {
 };
 
 export const PAGAMENTO_STATUS_DESCRICAO: Record<PagamentoStatus, string> = {
-  pendente: "O pagamento ainda não foi identificado pelo Mercado Pago.",
-  em_processamento: "O Mercado Pago está processando a transação.",
-  aprovado: "Pagamento confirmado pelo Mercado Pago.",
+  pendente: "O pagamento ainda não foi confirmado pela InfinitePay.",
+  em_processamento: "A InfinitePay está processando a transação.",
+  aprovado: "Pagamento confirmado pela InfinitePay.",
   recusado: "O pagamento foi recusado. O pedido continua registrado.",
-  cancelado: "O pagamento foi cancelado.",
-  expirado: "O prazo do pagamento expirou.",
-  estornado: "O valor foi estornado.",
-  erro: "Não foi possível confirmar o pagamento com o Mercado Pago.",
+  cancelado: "O pagamento foi cancelado no checkout.",
+  expirado: "O prazo do checkout expirou. Gere um novo link.",
+  estornado: "O valor foi estornado pela InfinitePay.",
+  erro: "Não foi possível confirmar o pagamento com a InfinitePay.",
 };
 
 export const PAGAMENTO_TIPO_LABEL: Record<PagamentoTipo, string> = {
+  online: "Checkout online",
   pix: "PIX online",
   cartao: "Cartão online",
 };
 
 export const PAGAMENTO_PROVEDOR_LABEL: Record<PagamentoProvedor, string> = {
   manual: "Manual",
-  mercadopago: "Mercado Pago",
+  infinitepay: "InfinitePay",
 };
 
 export function pagamentoStatusCor(
@@ -54,9 +55,10 @@ export function pagamentoPodeTentarNovamente(status: PagamentoStatus): boolean {
 }
 
 export function metodoPagamentoLabel(forma: string, provedor?: PagamentoProvedor | null, tipo?: PagamentoTipo | null): string {
-  if (provedor === "mercadopago") {
-    if (tipo === "pix" || forma === "pix") return "PIX online (Mercado Pago)";
-    if (tipo === "cartao" || forma === "cartao") return "Cartão online (Mercado Pago)";
+  if (provedor === "infinitepay") {
+    if (tipo === "pix") return "PIX online (InfinitePay)";
+    if (tipo === "cartao") return "Cartão online (InfinitePay)";
+    return "Pagamento online (InfinitePay)";
   }
   if (forma === "pix") return "PIX manual";
   if (forma === "dinheiro") return "Dinheiro";
@@ -67,10 +69,8 @@ export function metodoPagamentoLabel(forma: string, provedor?: PagamentoProvedor
 export const STATUS_INTEGRACAO_LABEL: Record<StatusIntegracaoPagamento, string> = {
   nao_configurado: "Não configurado",
   aguardando_credenciais: "Aguardando credenciais",
-  configurado_sandbox: "Configurado em Sandbox",
-  configurado_producao: "Configurado em produção",
-  testes_aprovados: "Testes aprovados",
-  pronto_para_producao: "Pronto para produção",
+  configurado: "Configurado",
+  testes_aprovados: "API acessível",
   producao_ativa: "Produção ativa",
 };
 

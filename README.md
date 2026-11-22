@@ -97,20 +97,20 @@ O cardápio público foi reestruturado como uma experiência cinematográfica in
 - QR code do cardápio para impressão.
 - Conta do administrador, redefinição de senha e logout.
 
-## Integrações preparadas (Mercado Pago + impressão)
+## Integrações preparadas (InfinitePay + impressão)
 
-### Mercado Pago
+### InfinitePay — Checkout Integrado
 
-- PIX online via **Checkout Transparente / Orders API**, com QR Code e copia e cola no checkout e no acompanhamento.
-- Cartão online via **Checkout Pro**, sem dados de cartão no frontend.
-- Criação de pagamento, consulta e webhook em **Supabase Edge Functions**.
-- Webhook com validação de assinatura HMAC, reconsulta obrigatória da API oficial e idempotência.
-- Segredos somente no servidor: `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY`, `MERCADOPAGO_WEBHOOK_SECRET` e `MERCADOPAGO_ENVIRONMENT`.
-- Painel em **Admin > Pagamentos**, com ambiente, credenciais presentes/ausentes (sem valores), teste de comunicação, webhook, últimos pagamentos e eventos.
+- Link de pagamento hospedado com PIX e cartão de crédito, sem dados de cartão no frontend.
+- Criação do checkout, consulta e webhook em **Supabase Edge Functions**.
+- Webhook sem assinatura, com confirmação obrigatória em `/payment_check` e idempotência.
+- Segredos somente no servidor: `INFINITEPAY_HANDLE` e `INFINITEPAY_API_KEY`.
+- Painel em **Admin > Pagamentos**, com credenciais presentes/ausentes (sem valores), teste de comunicação, webhook, últimos pagamentos e eventos.
 - Pagamentos manuais preservados: dinheiro, troco, cartão na máquina, PIX manual e comprovante por WhatsApp.
-- Guia: [`docs/mercadopago.md`](docs/mercadopago.md).
+- Guia: [`docs/infinitepay.md`](docs/infinitepay.md).
+- Auditoria e histórico da troca de gateway: [`docs/auditoria-pagamentos.md`](docs/auditoria-pagamentos.md).
 
-A integração está pronta para receber credenciais oficiais, mas **não foi homologada com pagamentos reais** neste repositório. Nenhuma credencial foi incluída e nenhum teste Sandbox real foi executado sem as chaves.
+A integração está pronta para receber credenciais oficiais, mas **não foi homologada com pagamentos reais** neste repositório. A InfinitePay não possui sandbox; a homologação usa compras reais de valor baixo e estorno pelo app.
 
 ### Impressão automática ESC/POS
 
@@ -133,8 +133,8 @@ A formatação e o protocolo foram testados sem impressora física. A homologaç
 - Tailwind CSS 4
 - TanStack Query
 - Supabase JS (Auth, PostgREST, Storage)
-- Supabase Edge Functions (Deno) para Mercado Pago
-- Mercado Pago Orders API (PIX) e Checkout Pro (cartão)
+- Supabase Edge Functions (Deno) para InfinitePay
+- InfinitePay Checkout Integrado (link hospedado com PIX e cartão)
 - Agente Node.js + ESC/POS para impressão térmica
 - Lucide Icons, Sonner
 - Leaflet + OpenStreetMap, Photon e ViaCEP para endereço no checkout
@@ -195,7 +195,7 @@ Scripts:
 | `npm run typecheck` | Verificação TypeScript |
 | `npm run lint` | ESLint |
 | `npm test` | Testes unitários de UI/utilidades |
-| `npm run test:integrations` | Testes do núcleo Mercado Pago (HMAC, status, payloads) e do cupom ESC/POS |
+| `npm run test:integrations` | Testes do núcleo InfinitePay (eventos, valores, payloads) e do cupom ESC/POS |
 | `npm run test:agent` | Testes de formatação do agente de impressão |
 | `npm run test:sql` | Valida as migrations em PostgreSQL local (PGlite) |
 | `npm run format` | Prettier |
@@ -284,8 +284,8 @@ o `index.html` e as URLs absolutas do README.
 - `npm run typecheck`
 - `npm run lint`
 - `npm test` — 27 testes unitários
-- `npm run test:integrations` — 12 testes de núcleo Mercado Pago e formatação ESC/POS
-- `npm run test:sql` — migration executada em PostgreSQL via PGlite com stubs de `auth` e `storage`, incluindo pedido completo, cupom, itens, histórico, promoção de administrador, RPC de combos e políticas RLS.
+- `npm run test:integrations` — 11 testes de núcleo InfinitePay e formatação ESC/POS
+- `npm run test:sql` — migrations executadas em PostgreSQL via PGlite com stubs de `auth` e `storage`, incluindo pedido completo, cupom, itens, histórico, promoção de administrador, RPC de combos, transição do gateway de pagamento e políticas RLS.
 - `npm run build`
 - Migration aplicada no Supabase real via Management API: 14 tabelas, 25 policies públicas + 4 de Storage, bucket e administrador inicial verificados.
 - Login real do administrador no site publicado e leitura do dashboard com dados reais.

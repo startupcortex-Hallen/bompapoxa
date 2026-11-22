@@ -28,10 +28,11 @@ describe("status de pagamento online", () => {
     expect(pagamentoPodeTentarNovamente("aprovado")).toBe(false);
   });
 
-  it("diferencia PIX manual de PIX online e cartão de máquina", () => {
+  it("diferencia PIX manual de pagamento online e cartão de máquina", () => {
     expect(metodoPagamentoLabel("pix", "manual")).toBe("PIX manual");
-    expect(metodoPagamentoLabel("pix", "mercadopago", "pix")).toBe("PIX online (Mercado Pago)");
-    expect(metodoPagamentoLabel("cartao", "mercadopago", "cartao")).toBe("Cartão online (Mercado Pago)");
+    expect(metodoPagamentoLabel("pix", "infinitepay", "pix")).toBe("PIX online (InfinitePay)");
+    expect(metodoPagamentoLabel("cartao", "infinitepay", "cartao")).toBe("Cartão online (InfinitePay)");
+    expect(metodoPagamentoLabel("cartao", "infinitepay", "online")).toBe("Pagamento online (InfinitePay)");
     expect(metodoPagamentoLabel("cartao", "manual")).toBe("Cartão na máquina");
   });
 

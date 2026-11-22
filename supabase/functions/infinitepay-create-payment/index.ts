@@ -1,20 +1,18 @@
 import { erro, json, lerJson, preflight } from "../_shared/http.mjs";
 import {
-  buildPixOrderBody,
-  buildPreferenceBody,
-  normalizeOrderResource,
-} from "../_shared/mp-core.mjs";
+  buildCheckoutPayload,
+  extractCheckoutUrl,
+  safeErrorMessage,
+} from "../_shared/infinitepay-core.mjs";
 import {
-  MercadoPagoError,
-  buildReturnUrls,
-  createPixOrder,
-  createPreference,
-  getMpConfig,
-  missingMpSecrets,
-} from "../_shared/mp-api.mjs";
+  InfinitepayError,
+  buildReturnUrl,
+  createPaymentLink,
+  getInfinitepayConfig,
+  missingInfinitepaySecrets,
+} from "../_shared/infinitepay-api.mjs";
 import {
   PaymentError,
-  aplicarRecursoMercadoPago,
   atualizarPagamento,
   atualizarSnapshotImpressao,
   carregarPagamentoDoPedido,
@@ -26,7 +24,6 @@ import {
   serializarPagamentoPublico,
   validarOnlineHabilitado,
 } from "../_shared/payment-service.mjs";
-import { safeErrorMessage } from "../_shared/mp-core.mjs";
 
 function statusHttp(error: unknown) {
   const status = Number((error as { status?: number } | null)?.status ?? 0);
@@ -40,17 +37,11 @@ Deno.serve(async (req) => {
 
   let pedido = null;
   let pagamento = null;
-  let tipo = "pix";
 
   try {
     const body = await lerJson(req);
     const pedidoId = String(body?.pedidoId ?? "").trim();
     const trackingToken = String(body?.trackingToken ?? "").trim();
-    tipo = String(body?.tipo ?? "").trim();
-
-    if (tipo !== "pix" && tipo !== "cartao") {
-      throw new PaymentError("Tipo de pagamento online inválido.", 400);
-    }
 
     pedido = await carregarPedidoPorToken(pedidoId, trackingToken);
     if (pedido.status === "cancelado") {
@@ -60,28 +51,26 @@ Deno.serve(async (req) => {
       throw new PaymentError("Este pedido já está pago.", 409);
     }
 
-    await validarOnlineHabilitado(tipo);
-    const config = getMpConfig();
-    if (!config.accessToken || !config.webhookSecret) {
+    await validarOnlineHabilitado();
+    const config = getInfinitepayConfig();
+    const faltando = missingInfinitepaySecrets(config);
+    if (faltando.length) {
       throw new PaymentError(
-        "Integração Mercado Pago ainda não configurada no servidor. Consulte a documentação de ativação.",
+        `Integração InfinitePay ainda não configurada no servidor. Credenciais ausentes: ${faltando.join(", ")}.`,
         503,
       );
     }
-    const faltando = missingMpSecrets(config);
-    if (!config.accessToken) {
-      throw new PaymentError(`Credenciais ausentes: ${faltando.join(", ")}.`, 503);
-    }
-    if (tipo === "pix" && !pedido.cliente_email) {
-      throw new PaymentError("Informe um e-mail válido para pagar com PIX online.", 400);
+    if (!config.webhookUrl) {
+      throw new PaymentError("URL pública do webhook InfinitePay não configurada.", 503);
     }
 
     const tentativa = await criarOuReutilizarTentativa({
       pedido,
-      tipo,
-      ambiente: config.ambiente,
+      ambiente: "producao",
+      tipo: "online",
     });
     pagamento = tentativa.pagamento;
+    await marcarPedidoComProvedor(pedido.id, "online");
 
     if (tentativa.jaPago) {
       return json({
@@ -94,7 +83,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (tentativa.reutilizado) {
+    if (tentativa.reutilizado && pagamento.checkout_url) {
       return json({
         ok: true,
         jaPago: false,
@@ -102,85 +91,54 @@ Deno.serve(async (req) => {
         tipo: pagamento.tipo,
         status: pagamento.status,
         pagamento: serializarPagamentoPublico(pagamento),
-        checkoutUrl: pagamento.tipo === "cartao" ? pagamento.init_point : null,
+        checkoutUrl: pagamento.checkout_url,
+        mensagem: "Finalize o pagamento no checkout da InfinitePay.",
       });
     }
 
-    await marcarPedidoComProvedor(pedido.id, tipo);
-
-    if (tipo === "pix") {
-      const corpo = buildPixOrderBody({
-        order: pedido,
-        payerEmail: pedido.cliente_email,
-        expirationTime: "PT30M",
-      });
-      const resposta = await createPixOrder(config, corpo, pagamento.idempotency_key);
-      const normalized = normalizeOrderResource(resposta);
-      const aplicado = await aplicarRecursoMercadoPago({
-        pedido,
-        pagamento,
-        normalized,
-        origem: "criacao",
-        evento: "pix_online_criado",
-      });
-      return json({
-        ok: true,
-        jaPago: aplicado.statusNovo === "aprovado",
-        reutilizado: false,
-        tipo: "pix",
-        status: aplicado.statusNovo,
-        pagamento: serializarPagamentoPublico(aplicado.pagamento),
-        checkoutUrl: null,
-      });
+    if (Number(pedido.total) < 1) {
+      throw new PaymentError("A InfinitePay exige valor mínimo de R$ 1,00 para pagamento online.", 400);
     }
 
-    const backUrls = buildReturnUrls({
+    const redirectUrl = buildReturnUrl({
       appUrl: config.appUrl,
       pedidoId: pedido.id,
       token: pedido.tracking_token,
     });
-    const corpo = buildPreferenceBody({
+    const payload = buildCheckoutPayload({
       order: pedido,
-      payerEmail: pedido.cliente_email,
-      backUrls,
-      notificationUrl: config.webhookUrl,
+      config,
+      redirectUrl,
+      webhookUrl: config.webhookUrl,
     });
-    const preferencia = await createPreference(config, corpo, pagamento.idempotency_key);
-    if (!preferencia?.id) {
-      throw new MercadoPagoError("Mercado Pago não retornou o ID da preferência.", 502);
-    }
-    const initPoint =
-      config.ambiente === "sandbox"
-        ? preferencia.sandbox_init_point ?? preferencia.init_point
-        : preferencia.init_point ?? preferencia.sandbox_init_point;
-    if (!initPoint) {
-      throw new MercadoPagoError("Mercado Pago não retornou a URL do checkout.", 502);
+    const resposta = await createPaymentLink(config, payload);
+    const checkoutUrl = extractCheckoutUrl(resposta);
+    if (!checkoutUrl) {
+      throw new InfinitepayError("A InfinitePay não retornou uma URL de checkout válida.", 502);
     }
 
     const atualizado = await atualizarPagamento(pagamento.id, {
       status: "pendente",
-      status_mp: "preference_created",
-      tipo: "cartao",
-      metodo: "checkout_pro",
-      mp_preference_id: String(preferencia.id),
-      init_point: preferencia.init_point ?? initPoint,
-      sandbox_init_point: preferencia.sandbox_init_point ?? null,
+      status_gateway: "link_criado",
+      tipo: "online",
+      metodo: "checkout",
+      gateway_order_id: String(pedido.id),
+      checkout_url: checkoutUrl,
       ultimo_erro: null,
       sincronizado_em: new Date().toISOString(),
     });
-    pedido = { ...pedido, pagamento_provedor: "mercadopago", pagamento_online_tipo: "cartao" };
 
     await registrarEvento({
       pagamentoId: atualizado.id,
       pedidoId: pedido.id,
       origem: "criacao",
-      evento: "checkout_pro_criado",
+      evento: "checkout_infinitepay_criado",
       statusAnterior: "pendente",
       statusNovo: "pendente",
       detalhe: {
-        mp_preference_id: preferencia.id,
-        ambiente: config.ambiente,
-        metodo: "checkout_pro",
+        gateway_order_id: String(pedido.id),
+        checkout_url: checkoutUrl,
+        valor_centavos: Math.round(Number(pedido.total) * 100),
       },
     });
     await atualizarSnapshotImpressao(pedido.id);
@@ -189,10 +147,11 @@ Deno.serve(async (req) => {
       ok: true,
       jaPago: false,
       reutilizado: false,
-      tipo: "cartao",
+      tipo: "online",
       status: "pendente",
-      checkoutUrl: initPoint,
+      checkoutUrl,
       pagamento: serializarPagamentoPublico(atualizado),
+      mensagem: "Checkout da InfinitePay criado.",
     });
   } catch (error) {
     if (pagamento && pedido) {
@@ -211,8 +170,7 @@ Deno.serve(async (req) => {
         // A resposta de erro original deve ser preservada.
       }
     }
-    console.error("Falha ao criar pagamento online", {
-      tipo,
+    console.error("Falha ao criar checkout InfinitePay", {
       status: (error as { status?: number } | null)?.status ?? 0,
       message: safeErrorMessage(error),
     });

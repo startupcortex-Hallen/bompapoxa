@@ -171,12 +171,12 @@ Validação live no projeto Supabase real:
 - Se desejar tempo real, habilitar a publicação Realtime das tabelas `cardapio_exemplo_pedidos` e `cardapio_exemplo_historico_pedidos` no painel; o frontend usa polling a cada 15 segundos por padrão.
 - Revogar ou rotacionar o Personal Access Token usado no provisionamento, pois ele foi compartilhado na conversa e não foi gravado no repositório.
 
-## Pagamentos online e impress�o (migration 202611180001)
+## Pagamentos online e impressão (migrations 202611180001 e 202611190001)
 
 A migration `202611180001_bompapoxa_pagamentos_impressao.sql` adiciona:
 
-- `cardapio_exemplo_pagamento_config` � ativa��o de PIX/cart�o online e �ltimo teste de comunica��o.
-- `cardapio_exemplo_pagamentos` � tentativa idempotente por pedido, com IDs do Mercado Pago, QR PIX, status e erro.
+- `cardapio_exemplo_pagamento_config` — ativação do checkout online e último teste de comunicação.
+- `cardapio_exemplo_pagamentos` — tentativa idempotente por pedido, com IDs da InfinitePay, link do checkout, status e erro.
 - `cardapio_exemplo_pagamento_eventos` � hist�rico t�cnico sem dados de cart�o.
 - `cardapio_exemplo_webhooks_processados` � idempot�ncia de notifica��es.
 - `cardapio_exemplo_impressoras` � dispositivos, largura 58/80, token com hash e �ltimo ping.
@@ -184,12 +184,12 @@ A migration `202611180001_bompapoxa_pagamentos_impressao.sql` adiciona:
 
 Fun��es principais:
 
-- `cardapio_exemplo_pagamento_publico()` � informa ao checkout se PIX/cart�o online est�o habilitados.
+- `cardapio_exemplo_pagamento_publico()` — informa ao checkout se o pagamento online está habilitado.
 - `cardapio_exemplo_get_pedido()` � agora inclui o resumo do pagamento online.
 - RPCs do agente: `cardapio_exemplo_agente_ping`, `cardapio_exemplo_agente_claim_jobs`, `cardapio_exemplo_agente_concluir`.
 - RPCs administrativas de impressora, teste, reimpress�o, reprocessamento e cancelamento.
 
-A migration � n�o destrutiva. Edge Functions do Mercado Pago ficam em `supabase/functions/` e os segredos devem ser cadastrados via `supabase secrets set`; consulte `docs/mercadopago.md` e `docs/impressao.md`.
+A migration é não destrutiva. Edge Functions da InfinitePay ficam em `supabase/functions/` e os segredos devem ser cadastrados via `supabase secrets set`; consulte `docs/infinitepay.md` e `docs/impressao.md`. A migration `202611190001_bompapoxa_infinitepay.sql` remove as tentativas do provedor anterior e renomeia os campos para o novo gateway.
 
 ### RLS das novas tabelas
 

@@ -107,9 +107,10 @@ export function formaPagamentoLabel(payload) {
   const forma = texto(payload?.forma_pagamento);
   const provedor = texto(payload?.pagamento_provedor);
   const onlineTipo = texto(payload?.pagamento_online_tipo);
-  if (provedor === "mercadopago") {
-    if (onlineTipo === "pix" || forma === "pix") return "PIX ONLINE (MERCADO PAGO)";
-    if (onlineTipo === "cartao" || forma === "cartao") return "CARTÃO ONLINE (MERCADO PAGO)";
+  if (provedor === "infinitepay") {
+    if (onlineTipo === "pix") return "PIX ONLINE (INFINITEPAY)";
+    if (onlineTipo === "cartao") return "CARTÃO ONLINE (INFINITEPAY)";
+    return "PAGAMENTO ONLINE (INFINITEPAY)";
   }
   if (forma === "pix") return "PIX MANUAL";
   if (forma === "dinheiro") return "DINHEIRO";

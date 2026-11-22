@@ -19,7 +19,7 @@ import { Badge, EstadoErro, Skeleton } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/form";
 import { atualizarConfiguracaoPagamento } from "@/lib/api";
-import { consultarStatusMercadoPago } from "@/lib/online-payments";
+import { consultarStatusInfinitepay } from "@/lib/online-payments";
 import {
   PAGAMENTO_STATUS_LABEL,
   STATUS_INTEGRACAO_LABEL,
@@ -44,10 +44,8 @@ export const Route = createFileRoute("/_authenticated/admin/pagamentos")({
 const CORES_STATUS: Record<StatusIntegracaoPagamento, "success" | "danger" | "accent" | "primary" | "neutral"> = {
   nao_configurado: "neutral",
   aguardando_credenciais: "accent",
-  configurado_sandbox: "primary",
-  configurado_producao: "primary",
+  configurado: "primary",
   testes_aprovados: "success",
-  pronto_para_producao: "success",
   producao_ativa: "success",
 };
 
@@ -59,11 +57,11 @@ function PagamentosPage() {
   const eventos = useQuery(adminPagamentoEventosQuery);
   const pedidos = useQuery(adminPedidosQuery);
   const [verificando, setVerificando] = useState(false);
-  const [salvando, setSalvando] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
 
   const status = useQuery({
-    queryKey: ["admin", "mercadopago-status"],
-    queryFn: () => consultarStatusMercadoPago(false),
+    queryKey: ["admin", "infinitepay-status"],
+    queryFn: () => consultarStatusInfinitepay(false),
     retry: false,
     staleTime: 30_000,
   });
@@ -71,11 +69,11 @@ function PagamentosPage() {
   const dadosStatus = status.data;
   const pedidosPorId = new Map((pedidos.data ?? []).map((pedido) => [pedido.id, pedido]));
 
-  const alternarConfig = async (campo: "mercadopago_ativo" | "pix_online_ativo" | "cartao_online_ativo") => {
+  const alternarIntegracao = async () => {
     if (!config.data) return;
-    setSalvando(campo);
+    setSalvando(true);
     try {
-      await atualizarConfiguracaoPagamento({ [campo]: !config.data[campo] });
+      await atualizarConfiguracaoPagamento({ infinitepay_ativo: !config.data.infinitepay_ativo });
       await qc.invalidateQueries({ queryKey: chaves.adminPagamentoConfig });
       await qc.invalidateQueries({ queryKey: chaves.pagamentoPublico });
       await status.refetch();
@@ -83,15 +81,15 @@ function PagamentosPage() {
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : "Não foi possível atualizar a configuração.");
     } finally {
-      setSalvando(null);
+      setSalvando(false);
     }
   };
 
   const verificarComunicacao = async () => {
     setVerificando(true);
     try {
-      const resposta = await consultarStatusMercadoPago(true);
-      qc.setQueryData(["admin", "mercadopago-status"], resposta);
+      const resposta = await consultarStatusInfinitepay(true);
+      qc.setQueryData(["admin", "infinitepay-status"], resposta);
       await qc.invalidateQueries({ queryKey: chaves.adminPagamentoConfig });
       if (resposta.comunicacao?.ok) {
         toast.success(resposta.comunicacao.mensagem);
@@ -133,7 +131,7 @@ function PagamentosPage() {
     <div className="space-y-6">
       <AdminPageHeader
         titulo="Pagamentos"
-        descricao="Integração oficial Mercado Pago, credenciais no servidor, webhook e acompanhamento dos pagamentos online."
+        descricao="Checkout Integrado da InfinitePay: link hospedado, webhook e confirmação server-to-server."
         acao={
           <Button variant="outline" onClick={() => void status.refetch()} disabled={status.isFetching}>
             <RefreshCw className={cn("h-4 w-4", status.isFetching && "animate-spin")} /> Atualizar status
@@ -142,8 +140,8 @@ function PagamentosPage() {
       />
 
       <AdminSection
-        titulo="Integração Mercado Pago"
-        descricao="Os segredos ficam nas Edge Functions do Supabase. Esta tela nunca exibe Access Token, Public Key ou Webhook Secret."
+        titulo="Integração InfinitePay"
+        descricao="A API Key fica nas Edge Functions do Supabase. Esta tela nunca exibe a API Key ou a InfiniteTag."
         acao={
           <Badge cor={CORES_STATUS[statusConfig]}>
             {status.isLoading ? "Consultando…" : STATUS_INTEGRACAO_LABEL[statusConfig]}
@@ -156,8 +154,8 @@ function PagamentosPage() {
               <AlertCircle className="h-4 w-4" /> Edge Functions de pagamento indisponíveis
             </p>
             <p className="mt-1 text-muted-foreground">
-              Publique as funções <code>mercadopago-*</code> no Supabase e cadastre os segredos. Enquanto isso, as
-              opções online ficam ocultas no checkout.
+              Publique as funções <code>infinitepay-*</code> no Supabase e cadastre os segredos. Enquanto isso, a
+              opção online fica oculta no checkout.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">{status.error instanceof Error ? status.error.message : "Erro desconhecido."}</p>
           </div>
@@ -171,21 +169,21 @@ function PagamentosPage() {
         ) : dadosStatus ? (
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Indicador rotulo="Ambiente" valor={dadosStatus.ambiente === "producao" ? "Produção" : "Sandbox"} />
+              <Indicador rotulo="Ambiente" valor="Produção (sem sandbox)" />
               <Indicador
-                rotulo="Access Token"
-                valor={dadosStatus.accessTokenConfigurado ? "Configurado" : "Ausente"}
-                ok={dadosStatus.accessTokenConfigurado}
+                rotulo="InfiniteTag"
+                valor={dadosStatus.handleConfigurado ? "Configurada" : "Ausente"}
+                ok={dadosStatus.handleConfigurado}
               />
               <Indicador
-                rotulo="Public Key"
-                valor={dadosStatus.publicKeyConfigurado ? "Configurada" : "Ausente"}
-                ok={dadosStatus.publicKeyConfigurado}
+                rotulo="API Key"
+                valor={dadosStatus.apiKeyConfigurado ? "Configurada" : "Ausente"}
+                ok={dadosStatus.apiKeyConfigurado}
               />
               <Indicador
-                rotulo="Webhook Secret"
-                valor={dadosStatus.webhookSecretConfigurado ? "Configurado" : "Ausente"}
-                ok={dadosStatus.webhookSecretConfigurado}
+                rotulo="Ativação"
+                valor={dadosStatus.ativo ? "Ativa" : "Desativada"}
+                ok={dadosStatus.ativo}
               />
             </div>
 
@@ -196,7 +194,7 @@ function PagamentosPage() {
                 </p>
                 <p className="mt-1 text-muted-foreground">
                   Cadastre no Supabase: <strong>{faltando.join(", ")}</strong>. Veja{" "}
-                  <span className="font-mono text-xs">docs/mercadopago.md</span>.
+                  <span className="font-mono text-xs">docs/infinitepay.md</span>.
                 </p>
               </div>
             ) : null}
@@ -212,11 +210,12 @@ function PagamentosPage() {
                   </Button>
                 </div>
                 <p className="mt-2 break-all rounded-lg bg-secondary/40 px-3 py-2 font-mono text-[11px]">
-                  {dadosStatus.webhookUrl}
+                  {dadosStatus.webhookUrl || "Configure SUPABASE_URL ou INFINITEPAY_WEBHOOK_URL."}
                 </p>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Cadastre esta URL no painel do Mercado Pago em Webhooks e habilite os eventos <strong>Order</strong> e{" "}
-                  <strong>Pagamentos</strong>, separadamente em Teste e Produção.
+                  A URL é enviada em cada link criado. A InfinitePay não permite editar o webhook de um link antigo;
+                  links novos usam esta URL. Não há assinatura HMAC: cada notificação é confirmada em{" "}
+                  <code>/payment_check</code> antes de aprovar o pedido.
                 </p>
               </div>
 
@@ -225,7 +224,7 @@ function PagamentosPage() {
                   <ShieldCheck className="h-4 w-4" /> Último teste
                 </p>
                 <p className="mt-2 text-sm">
-                  {dadosStatus.ultimoTesteOk ? "Comunicação autenticada" : "Ainda não aprovado"}
+                  {dadosStatus.ultimoTesteOk ? "API acessível" : "Ainda não aprovado"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {dadosStatus.ultimoTesteEm ? dataHoraBR(dadosStatus.ultimoTesteEm) : "Nenhum teste registrado."}
@@ -240,7 +239,7 @@ function PagamentosPage() {
                   size="sm"
                   carregando={verificando}
                   onClick={() => void verificarComunicacao()}
-                  disabled={!dadosStatus.accessTokenConfigurado}
+                  disabled={!dadosStatus.configurado}
                 >
                   <LoaderCircle className={cn("h-3.5 w-3.5", !verificando && "hidden")} />
                   <RefreshCw className={cn("h-3.5 w-3.5", verificando && "hidden")} /> Verificar comunicação
@@ -251,36 +250,18 @@ function PagamentosPage() {
             <div className="rounded-xl border border-border p-4">
               <p className="text-sm font-medium">Ativação no painel</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                As opções abaixo controlam o que aparece no checkout. Ative somente depois de configurar os segredos e
-                aprovar o teste de comunicação.
+                Ative somente depois de cadastrar a InfiniteTag/API Key e aprovar o teste de comunicação. O checkout
+                oferece PIX e cartão de crédito na mesma página hospedada.
               </p>
               <div className="mt-4 flex flex-wrap gap-6">
                 <label className="flex items-center gap-2 text-sm">
                   <Switch
-                    checked={Boolean(config.data?.mercadopago_ativo)}
-                    onChange={() => void alternarConfig("mercadopago_ativo")}
+                    checked={Boolean(config.data?.infinitepay_ativo)}
+                    onChange={() => void alternarIntegracao()}
                     label="Integração ativa"
-                    disabled={salvando !== null || !dadosStatus.configurado}
+                    disabled={salvando || !dadosStatus.configurado}
                   />
                   Integração ativa
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch
-                    checked={Boolean(config.data?.pix_online_ativo)}
-                    onChange={() => void alternarConfig("pix_online_ativo")}
-                    label="PIX online"
-                    disabled={salvando !== null || !config.data?.mercadopago_ativo}
-                  />
-                  PIX online
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch
-                    checked={Boolean(config.data?.cartao_online_ativo)}
-                    onChange={() => void alternarConfig("cartao_online_ativo")}
-                    label="Cartão online"
-                    disabled={salvando !== null || !config.data?.mercadopago_ativo}
-                  />
-                  Cartão online
                 </label>
               </div>
               {!dadosStatus.configurado ? (
@@ -295,7 +276,7 @@ function PagamentosPage() {
 
       <AdminSection
         titulo="Últimos pagamentos online"
-        descricao="Atualização a cada 30 segundos. O status é alterado somente pelo backend após consulta oficial ao Mercado Pago."
+        descricao="Atualização a cada 30 segundos. O status é alterado somente pelo backend após consulta oficial à InfinitePay."
       >
         {pagamentos.isLoading ? (
           <Skeleton className="h-40 rounded-xl" />
@@ -310,23 +291,29 @@ function PagamentosPage() {
                   <th className="py-2 pr-3">Tipo</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Valor</th>
-                  <th className="py-2 pr-3">Mercado Pago</th>
+                  <th className="py-2 pr-3">InfinitePay</th>
                   <th className="py-2">Atualizado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {pagamentos.data.slice(0, 30).map((pagamento) => {
                   const pedido = pedidosPorId.get(pagamento.pedido_id);
+                  const tipo =
+                    pagamento.tipo === "pix"
+                      ? "PIX online"
+                      : pagamento.tipo === "cartao"
+                        ? "Cartão online"
+                        : "Checkout online";
                   return (
                     <tr key={pagamento.id}>
                       <td className="py-2.5 pr-3 font-medium">#{pedido?.numero ?? "—"}</td>
-                      <td className="py-2.5 pr-3">{pagamento.tipo === "pix" ? "PIX online" : "Cartão online"}</td>
+                      <td className="py-2.5 pr-3">{tipo}</td>
                       <td className="py-2.5 pr-3">
                         <Badge cor={pagamentoStatusCor(pagamento.status)}>{PAGAMENTO_STATUS_LABEL[pagamento.status]}</Badge>
                       </td>
                       <td className="py-2.5 pr-3">{moedaBRL(pagamento.valor)}</td>
                       <td className="py-2.5 pr-3 font-mono text-[11px] text-muted-foreground">
-                        {pagamento.mp_payment_id ?? pagamento.mp_order_id ?? pagamento.mp_preference_id ?? "—"}
+                        {pagamento.gateway_payment_id ?? pagamento.gateway_checkout_id ?? pagamento.gateway_order_id ?? "—"}
                       </td>
                       <td className="py-2.5 text-xs text-muted-foreground">{dataHoraBR(pagamento.updated_at)}</td>
                     </tr>
@@ -369,24 +356,24 @@ function PagamentosPage() {
         )}
       </AdminSection>
 
-      <AdminSection titulo="Como ativar" descricao="Passo a passo completo em docs/mercadopago.md.">
+      <AdminSection titulo="Como ativar" descricao="Passo a passo completo em docs/infinitepay.md.">
         <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-          <li>Crie a aplicação no painel de integrações do Mercado Pago e copie as credenciais de Teste.</li>
-          <li>Cadastre os segredos no Supabase com `supabase secrets set --env-file supabase/.env`.</li>
-          <li>Publique as Edge Functions `mercadopago-create-payment`, `mercadopago-sync-payment`, `mercadopago-webhook` e `mercadopago-admin-status`.</li>
-          <li>Cadastre a URL do webhook no Mercado Pago e habilite os eventos Order e Pagamentos.</li>
-          <li>Clique em Verificar comunicação e depois ative PIX online e/ou Cartão online.</li>
-          <li>Faça uma compra teste no Sandbox. O status só muda com confirmação real da API do Mercado Pago.</li>
+          <li>No app InfinitePay, habilite o Checkout Integrado em Vendas &gt; Checkout &gt; Configurações.</li>
+          <li>Crie uma API Key e copie a InfiniteTag (sem o símbolo $).</li>
+          <li>Cadastre `INFINITEPAY_HANDLE` e `INFINITEPAY_API_KEY` no Supabase.</li>
+          <li>Publique as Edge Functions `infinitepay-create-payment`, `infinitepay-sync-payment`, `infinitepay-webhook` e `infinitepay-admin-status`.</li>
+          <li>Clique em Verificar comunicação e ative a integração no painel.</li>
+          <li>Faça uma compra real de valor baixo, confirme o webhook e estorne pelo app se necessário.</li>
         </ol>
         <div className="mt-4 flex flex-wrap gap-2">
-          <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noreferrer">
+          <a href="https://www.infinitepay.io/checkout-documentacao" target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm">
-              <ExternalLink className="h-3.5 w-3.5" /> Painel Mercado Pago
+              <ExternalLink className="h-3.5 w-3.5" /> Documentação do Checkout
             </Button>
           </a>
-          <a href="https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/pix" target="_blank" rel="noreferrer">
+          <a href="https://app.infinitepay.io/external-checkout#configuracoes" target="_blank" rel="noreferrer">
             <Button variant="outline" size="sm">
-              <Info className="h-3.5 w-3.5" /> Documentação PIX
+              <Info className="h-3.5 w-3.5" /> Configurar Checkout Integrado
             </Button>
           </a>
         </div>

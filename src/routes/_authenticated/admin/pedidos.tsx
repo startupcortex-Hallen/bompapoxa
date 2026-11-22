@@ -206,9 +206,9 @@ function PedidosPage() {
                       <p className="text-lg font-semibold">#{pedido.numero}</p>
                       <StatusPedidoBadge status={pedido.status} />
                       <StatusPagamentoBadge status={pedido.status_pagamento} />
-                      {pedido.pagamento_provedor === "mercadopago" ? (
+                      {pedido.pagamento_provedor === "infinitepay" ? (
                         <Badge cor={pagamentoStatusCor(pedido.pagamento?.status ?? "pendente")}>
-                          Mercado Pago
+                          InfinitePay
                         </Badge>
                       ) : null}
                       <Badge>{pedido.modalidade === "delivery" ? <><Bike className="h-3 w-3" /> Entrega</> : <><Store className="h-3 w-3" /> Retirada</>}</Badge>
@@ -292,9 +292,9 @@ function DetalhePedido({
         <div className="flex flex-wrap items-center gap-2">
           <StatusPedidoBadge status={pedido.status} />
           <StatusPagamentoBadge status={pedido.status_pagamento} />
-          {pedido.pagamento_provedor === "mercadopago" ? (
+          {pedido.pagamento_provedor === "infinitepay" ? (
             <Badge cor={pagamentoStatusCor(pedido.pagamento?.status ?? "pendente")}>
-              {pedido.pagamento ? PAGAMENTO_STATUS_LABEL[pedido.pagamento.status] : "Mercado Pago"}
+              {pedido.pagamento ? PAGAMENTO_STATUS_LABEL[pedido.pagamento.status] : "InfinitePay"}
             </Badge>
           ) : null}
           <Badge>{MODALIDADE_LABEL[pedido.modalidade]}</Badge>
@@ -340,19 +340,21 @@ function DetalhePedido({
         </div>
       </div>
 
-      {pedido.pagamento_provedor === "mercadopago" || pedido.pagamento ? (
+      {pedido.pagamento_provedor === "infinitepay" || pedido.pagamento ? (
         <div className="rounded-xl border border-border p-4 text-sm">
           <p className="text-xs font-medium text-muted-foreground">Pagamento online</p>
           <p className="mt-1">
             {pedido.pagamento
-              ? `${metodoPagamentoLabel(pedido.forma_pagamento, "mercadopago", pedido.pagamento_online_tipo)} • ${PAGAMENTO_STATUS_LABEL[pedido.pagamento.status]}`
-              : "Mercado Pago sem registro de pagamento online."}
+              ? `${metodoPagamentoLabel(pedido.forma_pagamento, "infinitepay", pedido.pagamento_online_tipo)} • ${PAGAMENTO_STATUS_LABEL[pedido.pagamento.status]}`
+              : "InfinitePay sem registro de pagamento online."}
           </p>
           {pedido.pagamento?.ultimo_erro ? (
             <p className="mt-1 text-xs text-danger">{pedido.pagamento.ultimo_erro}</p>
           ) : null}
-          {pedido.pagamento?.mp_payment_id ? (
-            <p className="mt-1 font-mono text-[11px] text-muted-foreground">MP: {pedido.pagamento.mp_payment_id}</p>
+          {pedido.pagamento?.gateway_payment_id ? (
+            <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+              Transação InfinitePay: {pedido.pagamento.gateway_payment_id}
+            </p>
           ) : null}
         </div>
       ) : null}

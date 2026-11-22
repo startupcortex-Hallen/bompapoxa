@@ -41,7 +41,7 @@ function pedidoBase(overrides = {}) {
     ],
     observacoes: "Campainha com defeito. Ligar ao chegar.",
     forma_pagamento: "pix",
-    pagamento_provedor: "mercadopago",
+    pagamento_provedor: "infinitepay",
     pagamento_online_tipo: "pix",
     pagamento_status: "pendente",
     pagamento_online: { status: "pendente", tipo: "pix" },
@@ -82,7 +82,7 @@ test("gera cupom de entrega em 80 mm sem linhas acima da largura", () => {
   assert.match(cupom, /Campainha com defeito/);
   assert.match(cupom, /ENDEREÇO DE ENTREGA:/);
   assert.match(cupom, /Rua da Bahia/);
-  assert.match(cupom, /PIX ONLINE \(MERCADO PAGO\)/);
+  assert.match(cupom, /PIX ONLINE \(INFINITEPAY\)/);
   assert.match(cupom, /AGUARDANDO PAGAMENTO/);
   assert.match(cupom, /Desconto:/);
   assert.match(cupom, /TOTAL DO PEDIDO:/);

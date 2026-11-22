@@ -249,12 +249,11 @@ export async function carregarPagamentoPublico(): Promise<PagamentoPublico> {
     if (error) throw error;
     const row = (data && typeof data === "object" ? data : {}) as Row;
     return {
-      mercadopago_ativo: row.mercadopago_ativo === true,
-      pix_online: row.pix_online === true,
-      cartao_online: row.cartao_online === true,
+      infinitepay_ativo: row.infinitepay_ativo === true,
+      online_ativo: row.online_ativo === true,
     };
   } catch {
-    return { mercadopago_ativo: false, pix_online: false, cartao_online: false };
+    return { infinitepay_ativo: false, online_ativo: false };
   }
 }
 

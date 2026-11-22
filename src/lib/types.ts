@@ -7,8 +7,8 @@
   | "retirado"
   | "cancelado";
 
-export type PagamentoProvedor = "manual" | "mercadopago";
-export type PagamentoTipo = "pix" | "cartao";
+export type PagamentoProvedor = "manual" | "infinitepay";
+export type PagamentoTipo = "online" | "pix" | "cartao";
 export type PagamentoStatus =
   | "pendente"
   | "em_processamento"
@@ -22,23 +22,20 @@ export type PagamentoStatus =
 export type Pagamento = {
   id: string;
   pedido_id: string;
-  provedor: "mercadopago";
+  provedor: "infinitepay";
   ambiente: "sandbox" | "producao";
   tipo: PagamentoTipo;
   status: PagamentoStatus;
-  status_mp: string | null;
+  status_gateway: string | null;
   metodo: string | null;
   valor: number;
   moeda: string;
-  mp_order_id: string | null;
-  mp_payment_id: string | null;
-  mp_preference_id: string | null;
-  mp_external_reference: string;
-  qr_code: string | null;
-  qr_code_base64: string | null;
-  ticket_url: string | null;
-  init_point: string | null;
-  sandbox_init_point: string | null;
+  gateway_order_id: string | null;
+  gateway_payment_id: string | null;
+  gateway_checkout_id: string | null;
+  gateway_external_reference: string;
+  checkout_url: string | null;
+  receipt_url: string | null;
   ultimo_erro: string | null;
   aprovado_em: string | null;
   expirado_em: string | null;
@@ -48,9 +45,8 @@ export type Pagamento = {
 };
 
 export type PagamentoPublico = {
-  mercadopago_ativo: boolean;
-  pix_online: boolean;
-  cartao_online: boolean;
+  infinitepay_ativo: boolean;
+  online_ativo: boolean;
 };
 
 export type ResultadoPagamentoOnline = {
@@ -68,26 +64,21 @@ export type ResultadoPagamentoOnline = {
 export type StatusIntegracaoPagamento =
   | "nao_configurado"
   | "aguardando_credenciais"
-  | "configurado_sandbox"
-  | "configurado_producao"
+  | "configurado"
   | "testes_aprovados"
-  | "pronto_para_producao"
   | "producao_ativa";
 
-export type StatusIntegracaoMercadoPago = {
+export type StatusIntegracaoInfinitepay = {
   ok: boolean;
   status: StatusIntegracaoPagamento;
-  ambiente: "sandbox" | "producao";
+  ambiente: "producao";
   configurado: boolean;
-  accessTokenConfigurado: boolean;
-  publicKeyConfigurado: boolean;
-  webhookSecretConfigurado: boolean;
+  handleConfigurado: boolean;
+  apiKeyConfigurado: boolean;
   faltando: string[];
   webhookUrl: string;
   appUrl: string;
   ativo: boolean;
-  pixOnline: boolean;
-  cartaoOnline: boolean;
   ultimoTesteOk: boolean;
   ultimoTesteEm: string | null;
   ultimoTesteAmbiente: string | null;
@@ -145,9 +136,7 @@ export type EventoPagamento = {
 
 export type ConfiguracaoPagamento = {
   id: number;
-  mercadopago_ativo: boolean;
-  pix_online_ativo: boolean;
-  cartao_online_ativo: boolean;
+  infinitepay_ativo: boolean;
   ultimo_teste_ok: boolean;
   ultimo_teste_em: string | null;
   ultimo_teste_ambiente: string | null;

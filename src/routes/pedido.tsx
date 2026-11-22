@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,7 +6,6 @@ import {
   Check,
   CheckCircle2,
   Clock,
-  Copy,
   ExternalLink,
   MapPin,
   MessageSquare,
@@ -40,10 +39,19 @@ import { estiloTema } from "@/lib/theme";
 import type { Configuracoes, StatusPedidoRastreio } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+function textoBusca(valor: unknown): string | undefined {
+  return typeof valor === "string" && valor.trim() ? valor : undefined;
+}
+
 export const Route = createFileRoute("/pedido")({
   validateSearch: (search: Record<string, unknown>) => ({
-    id: typeof search.id === "string" ? search.id : undefined,
-    token: typeof search.token === "string" ? search.token : undefined,
+    id: textoBusca(search.id),
+    token: textoBusca(search.token),
+    order_nsu: textoBusca(search.order_nsu),
+    transaction_nsu: textoBusca(search.transaction_nsu),
+    slug: textoBusca(search.slug),
+    capture_method: textoBusca(search.capture_method),
+    receipt_url: textoBusca(search.receipt_url),
   }),
   component: PedidoPage,
 });
@@ -121,7 +129,19 @@ function PedidoPage() {
         <Link to="/" className="text-xs text-muted-foreground underline decoration-current/30 underline-offset-4 hover:decoration-current">
           ← Voltar ao cardápio
         </Link>
-        <Acompanhamento pedido={data} token={token} config={layout.data.configuracoes} recarregar={() => void refetch()} />
+        <Acompanhamento
+          pedido={data}
+          token={token}
+          config={layout.data.configuracoes}
+          recarregar={() => void refetch()}
+          retorno={{
+            orderNsu: search.order_nsu,
+            transactionNsu: search.transaction_nsu,
+            slug: search.slug,
+            captureMethod: search.capture_method,
+            receiptUrl: search.receipt_url,
+          }}
+        />
       </div>
     </PublicLayout>
   );
@@ -132,11 +152,19 @@ function Acompanhamento({
   token,
   config,
   recarregar,
+  retorno,
 }: {
   pedido: StatusPedidoRastreio;
   token: string;
   config: Configuracoes;
   recarregar: () => void;
+  retorno: {
+    orderNsu?: string;
+    transactionNsu?: string;
+    slug?: string;
+    captureMethod?: string;
+    receiptUrl?: string;
+  };
 }) {
   const qc = useQueryClient();
   const [nota, setNota] = useState(5);
@@ -146,11 +174,14 @@ function Acompanhamento({
   const [erro, setErro] = useState<string | null>(null);
   const [sincronizandoPagamento, setSincronizandoPagamento] = useState(false);
   const [erroPagamento, setErroPagamento] = useState<string | null>(null);
+  const referenciaSincronizada = useRef<string | null>(null);
+  const recarregarRef = useRef(recarregar);
+  recarregarRef.current = recarregar;
   const etapas = useMemo(() => etapasPedido(pedido.modalidade), [pedido.modalidade]);
   const atual = indiceEtapa(pedido);
   const podeAvaliar = (pedido.status === "entregue" || pedido.status === "retirado") && !pedido.avaliacao;
   const pagamentoOnline = pedido.pagamento;
-  const temPagamentoOnline = pedido.pagamento_provedor === "mercadopago";
+  const temPagamentoOnline = pedido.pagamento_provedor === "infinitepay";
 
   const verificarPagamento = async () => {
     setSincronizandoPagamento(true);
@@ -162,7 +193,7 @@ function Acompanhamento({
         forcar: true,
       });
       if (resposta.status === "aprovado") {
-        toast.success("Pagamento aprovado pelo Mercado Pago.");
+        toast.success("Pagamento aprovado pela InfinitePay.");
       } else if (resposta.mensagem) {
         toast.info(resposta.mensagem);
       } else {
@@ -177,15 +208,48 @@ function Acompanhamento({
     }
   };
 
-  const copiarCodigoPix = async () => {
-    if (!pagamentoOnline?.qr_code) return;
-    try {
-      await navigator.clipboard.writeText(pagamentoOnline.qr_code);
-      toast.success("Código PIX copiado.");
-    } catch {
-      toast.error("Não foi possível copiar o código PIX.");
-    }
-  };
+  useEffect(() => {
+    if (!retorno.transactionNsu || !retorno.slug) return;
+    if (retorno.orderNsu && retorno.orderNsu !== pedido.id) return;
+    const chave = `${retorno.transactionNsu}|${retorno.slug}`;
+    if (referenciaSincronizada.current === chave) return;
+    referenciaSincronizada.current = chave;
+
+    let cancelado = false;
+    setSincronizandoPagamento(true);
+    setErroPagamento(null);
+    void (async () => {
+      try {
+        const resposta = await sincronizarPagamentoOnline({
+          pedidoId: pedido.id,
+          trackingToken: token,
+          forcar: true,
+          transactionNsu: retorno.transactionNsu,
+          slug: retorno.slug,
+          captureMethod: retorno.captureMethod,
+          receiptUrl: retorno.receiptUrl,
+        });
+        if (cancelado) return;
+        if (resposta.status === "aprovado") {
+          toast.success("Pagamento aprovado pela InfinitePay.");
+        } else if (resposta.mensagem) {
+          toast.info(resposta.mensagem);
+        }
+        recarregarRef.current();
+        await qc.invalidateQueries({ queryKey: ["pedido-publico"] });
+      } catch (erroSync) {
+        if (!cancelado) {
+          setErroPagamento(erroSync instanceof Error ? erroSync.message : "Não foi possível verificar o pagamento.");
+        }
+      } finally {
+        if (!cancelado) setSincronizandoPagamento(false);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [pedido.id, retorno.transactionNsu, retorno.slug, retorno.orderNsu, retorno.captureMethod, retorno.receiptUrl, token, qc]);
 
   const enviarAvaliacao = async () => {
     setErro(null);
@@ -332,7 +396,7 @@ function Acompanhamento({
           <p className="mt-3 text-sm">
             Pagamento:{" "}
             {temPagamentoOnline
-              ? metodoPagamentoLabel(pedido.forma_pagamento, "mercadopago", pedido.pagamento_online_tipo)
+              ? metodoPagamentoLabel(pedido.forma_pagamento, "infinitepay", pedido.pagamento_online_tipo)
               : metodoPagamentoLabel(pedido.forma_pagamento, "manual")}
           </p>
           <p className="text-sm text-muted-foreground">Situação: {pedido.status_pagamento === "pago" ? "Pago" : "A pagar"}</p>
@@ -353,53 +417,25 @@ function Acompanhamento({
           <p className="mt-2 text-sm text-muted-foreground">
             {pagamentoOnline
               ? PAGAMENTO_STATUS_DESCRICAO[pagamentoOnline.status]
-              : "O pedido foi registrado, mas o pagamento online ainda não retornou do Mercado Pago."}
+              : "O pedido foi registrado, mas o checkout da InfinitePay ainda não retornou."}
           </p>
 
-          {pagamentoOnline?.tipo === "pix" && pagamentoOnline.status !== "aprovado" && pagamentoOnline.qr_code_base64 ? (
-            <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-border bg-white p-4 sm:flex-row sm:items-start">
-              <img
-                src={`data:image/png;base64,${pagamentoOnline.qr_code_base64}`}
-                alt="QR Code PIX do Mercado Pago"
-                className="h-44 w-44 shrink-0"
-              />
-              <div className="min-w-0 flex-1 text-foreground">
-                <p className="text-sm font-medium">Escaneie o QR Code ou use o PIX copia e cola.</p>
-                {pagamentoOnline.qr_code ? (
-                  <>
-                    <p className="mt-2 break-all rounded-lg bg-secondary/50 p-2 font-mono text-[10px] leading-relaxed">
-                      {pagamentoOnline.qr_code}
-                    </p>
-                    <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => void copiarCodigoPix()}>
-                      <Copy className="h-3.5 w-3.5" /> Copiar código PIX
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            </div>
+          {pagamentoOnline?.status !== "aprovado" && pagamentoOnline?.checkout_url ? (
+            <a href={pagamentoOnline.checkout_url} target="_blank" rel="noreferrer" className="mt-4 inline-flex">
+              <Button variant="outline">
+                <ExternalLink className="h-4 w-4" /> Abrir checkout InfinitePay
+              </Button>
+            </a>
           ) : null}
 
-          {pagamentoOnline?.ticket_url ? (
+          {pagamentoOnline?.receipt_url ? (
             <a
-              href={pagamentoOnline.ticket_url}
+              href={pagamentoOnline.receipt_url}
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary underline decoration-current/30 underline-offset-4 hover:decoration-current"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> Abrir instruções PIX
-            </a>
-          ) : null}
-
-          {pagamentoOnline?.tipo === "cartao" && pagamentoOnline.status !== "aprovado" && pagamentoOnline.init_point ? (
-            <a
-              href={pagamentoOnline.init_point}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex"
-            >
-              <Button variant="outline">
-                <ExternalLink className="h-4 w-4" /> Abrir checkout do Mercado Pago
-              </Button>
+              <ExternalLink className="h-3.5 w-3.5" /> Ver comprovante InfinitePay
             </a>
           ) : null}
 
@@ -412,7 +448,7 @@ function Acompanhamento({
 
           {pagamentoOnline?.status === "aprovado" ? (
             <p className="mt-4 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success">
-              <CheckCircle2 className="h-4 w-4" /> Pagamento confirmado pelo Mercado Pago.
+              <CheckCircle2 className="h-4 w-4" /> Pagamento confirmado pela InfinitePay.
             </p>
           ) : (
             <Button
