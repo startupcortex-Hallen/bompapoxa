@@ -19,6 +19,14 @@ type RespostaEdge = {
   mensagem?: string;
 };
 
+function sinalComTimeout(ms: number): AbortSignal {
+  const nativo = (AbortSignal as unknown as { timeout?: (milissegundos: number) => AbortSignal }).timeout;
+  if (typeof nativo === "function") return nativo.call(AbortSignal, ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
 function baseUrl(): string {
   const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
   if (!url) throw new Error("Supabase URL não configurada.");
@@ -55,7 +63,7 @@ async function chamarEdge<T extends RespostaEdge>(
       method: "POST",
       headers,
       body: JSON.stringify(corpo),
-      signal: AbortSignal.timeout(30000),
+      signal: sinalComTimeout(30000),
     });
   } catch {
     throw new Error("Não foi possível falar com o servidor de pagamentos. Verifique a conexão.");
