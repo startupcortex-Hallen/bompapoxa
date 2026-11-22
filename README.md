@@ -125,6 +125,18 @@ A integração está pronta para receber credenciais oficiais, mas **não foi ho
 
 A formatação e o protocolo foram testados sem impressora física. A homologação de hardware permanece pendente até conectar o equipamento.
 
+### Impressão Bluetooth no celular/tablet
+
+- Menu **Impressora** no painel administrativo, com busca, conexão, desconexão e troca de impressora.
+- Papel 58 mm (32 colunas) ou 80 mm (48 colunas), com formatação ESC/POS adaptada.
+- Impressora salva no aparelho e reconexão automática.
+- Botão **Imprimir Bluetooth** no detalhe do pedido e teste de impressão no painel.
+- App Android nativo (Capacitor) com Bluetooth Clássico (SPP) e BLE; navegador Chrome/Edge com BLE.
+- APK de debug gerado em `android/app/build/outputs/apk/debug/app-debug.apk`.
+- Guia: [`docs/impressao-bluetooth.md`](docs/impressao-bluetooth.md).
+
+A homologação física da impressora Bluetooth também depende do equipamento real.
+
 ## Stack
 
 - React 19 + TypeScript

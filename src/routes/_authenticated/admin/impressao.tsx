@@ -14,6 +14,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { toast } from "sonner";
+import { BluetoothPrinter } from "@/components/admin/BluetoothPrinter";
 import { AdminPageHeader, AdminSection } from "@/components/admin/ui";
 import { Badge, EstadoErro, EstadoVazio, Skeleton } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
@@ -220,14 +221,16 @@ function ImpressaoPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        titulo="Impressão"
-        descricao="Fila persistente ESC/POS, agente local no Windows, reimpressão registrada e histórico de erros."
+        titulo="Impressora"
+        descricao="Impressão Bluetooth no celular/tablet e fila persistente ESC/POS com agente local no Windows."
         acao={
           <Button variant="outline" onClick={() => void invalidar()} disabled={fila.isFetching || impressoras.isFetching}>
             <RefreshCw className={cn("h-4 w-4", (fila.isFetching || impressoras.isFetching) && "animate-spin")} /> Atualizar
           </Button>
         }
       />
+
+      <BluetoothPrinter />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Contador rotulo="Pendentes" valor={contagem.pendente} />

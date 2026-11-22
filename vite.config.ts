@@ -4,8 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
-export default defineConfig({
-  base: "/bompapoxa/",
+export default defineConfig(({ mode }) => ({
+  base: mode === "capacitor" ? "/" : "/bompapoxa/",
   plugins: [
     tanstackRouter({
       target: "react",
@@ -19,4 +19,4 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
   },
-});
+}));

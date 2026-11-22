@@ -54,7 +54,7 @@ const GRUPOS = [
       { to: "/admin/banners", rotulo: "Banners", icone: ImageIcon },
       { to: "/admin/cupons", rotulo: "Cupons", icone: TicketPercent },
       { to: "/admin/pagamentos", rotulo: "Pagamentos", icone: CreditCard },
-      { to: "/admin/impressao", rotulo: "Impressão", icone: Printer },
+      { to: "/admin/impressao", rotulo: "Impressora", icone: Printer },
       { to: "/admin/avaliacoes", rotulo: "Avaliações", icone: Star },
       { to: "/admin/configuracoes", rotulo: "Configurações", icone: Settings },
       { to: "/admin/qr", rotulo: "QR do cardápio", icone: QrCode },

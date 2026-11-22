@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BOM PA POXA</string>
+    <string name="title_activity_main">BOM PA POXA</string>
+    <string name="package_name">com.bompapoxa.app</string>
+    <string name="custom_url_scheme">com.bompapoxa.app</string>
+</resources>

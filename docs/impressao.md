@@ -1,5 +1,7 @@
 # Impressão automática ESC/POS — BOM PA POXA
 
+> Impressão Bluetooth no celular/tablet: consulte [`impressao-bluetooth.md`](./impressao-bluetooth.md). O agente local descrito abaixo continua sendo a opção de impressão automática em um PC.
+
 ## 1. Objetivo e arquitetura
 
 Todo pedido criado com sucesso entra automaticamente na fila persistente de impressão. A impressão não depende do WhatsApp, do painel aberto ou de `window.print()`.

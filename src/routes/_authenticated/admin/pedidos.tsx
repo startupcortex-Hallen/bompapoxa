@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   Bike,
+  Bluetooth,
   CheckCircle2,
   CircleDollarSign,
   Clock,
@@ -21,8 +22,11 @@ import { Badge, EstadoVazio, Skeleton } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
-import { adminPedidosQuery, chaves } from "@/lib/queries";
+import { adminConfiguracoesQuery, adminPedidosQuery, chaves } from "@/lib/queries";
 import { atualizarPagamentoPedido, atualizarStatusPedido, enfileirarReimpressao, excluirPedido } from "@/lib/api";
+import { imprimirPedidoBluetooth } from "@/lib/thermal/printer";
+import { mensagemBluetooth } from "@/lib/thermal/services";
+import type { TicketPayload } from "@/lib/thermal/ticket";
 import {
   PAGAMENTO_STATUS_LABEL,
   metodoPagamentoLabel,
@@ -31,7 +35,7 @@ import {
 import { dataHoraBR, horaBR, moedaBRL, tempoRelativo } from "@/lib/format";
 import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL, STATUS_DESCRICAO, STATUS_LABEL, proximosStatus } from "@/lib/order-status";
 import { useTitulo } from "@/lib/page-title";
-import type { Pedido, StatusPedido } from "@/lib/types";
+import type { Configuracoes, Pedido, StatusPedido } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/pedidos")({
@@ -273,6 +277,66 @@ function PedidosPage() {
   );
 }
 
+function montarPayloadImpressao(pedido: Pedido, config?: Configuracoes): TicketPayload {
+  return {
+    pedido_id: pedido.id,
+    numero: pedido.numero,
+    criado_em: pedido.created_at,
+    status: pedido.status,
+    cliente_nome: pedido.cliente_nome,
+    cliente_telefone: pedido.cliente_telefone,
+    cliente_email: pedido.cliente_email,
+    modalidade: pedido.modalidade,
+    endereco: {
+      cep: pedido.cep,
+      endereco: pedido.endereco,
+      numero: pedido.numero_endereco,
+      complemento: pedido.complemento,
+      bairro: pedido.bairro,
+      cidade: pedido.cidade,
+      referencia: pedido.referencia,
+    },
+    itens: pedido.itens.map((item) => ({
+      nome: item.nome,
+      quantidade: item.quantidade,
+      preco_unitario: item.preco_unitario,
+      adicionais: item.adicionais.map((adicional) => ({ nome: adicional.nome, preco: adicional.preco })),
+      observacao: item.observacao,
+    })),
+    observacoes: pedido.observacoes,
+    forma_pagamento: pedido.forma_pagamento,
+    pagamento_provedor: pedido.pagamento_provedor,
+    pagamento_online_tipo: pedido.pagamento_online_tipo,
+    pagamento_status: pedido.status_pagamento,
+    pagamento_online: pedido.pagamento
+      ? {
+          status: pedido.pagamento.status,
+          status_gateway: pedido.pagamento.status_gateway,
+          tipo: pedido.pagamento.tipo,
+          metodo: pedido.pagamento.metodo,
+          gateway_order_id: pedido.pagamento.gateway_order_id,
+          gateway_payment_id: pedido.pagamento.gateway_payment_id,
+          gateway_checkout_id: pedido.pagamento.gateway_checkout_id,
+          receipt_url: pedido.pagamento.receipt_url,
+        }
+      : null,
+    troco_para: pedido.troco_para,
+    subtotal: pedido.subtotal,
+    taxa_entrega: pedido.taxa_entrega,
+    desconto: pedido.desconto,
+    total: pedido.total,
+    cupom_codigo: pedido.cupom_codigo,
+    estabelecimento: {
+      nome: config?.nome_estabelecimento ?? "BOM PA POXA",
+      endereco: config?.endereco ?? null,
+      bairro: config?.bairro ?? null,
+      cidade: config?.cidade ?? null,
+      telefone: config?.telefone ?? null,
+      whatsapp: config?.whatsapp ?? null,
+    },
+  };
+}
+
 function DetalhePedido({
   pedido,
   aoMudarStatus,
@@ -286,6 +350,21 @@ function DetalhePedido({
   aoExcluir: () => void;
   aoReimprimir: () => void;
 }) {
+  const config = useQuery(adminConfiguracoesQuery);
+  const [imprimindo, setImprimindo] = useState(false);
+
+  const imprimirBluetooth = async () => {
+    setImprimindo(true);
+    try {
+      await imprimirPedidoBluetooth(montarPayloadImpressao(pedido, config.data?.configuracoes));
+      toast.success("Pedido enviado para a impressora Bluetooth.");
+    } catch (falha) {
+      toast.error(mensagemBluetooth(falha, "Não foi possível imprimir no Bluetooth."));
+    } finally {
+      setImprimindo(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-secondary/35 px-4 py-3">
@@ -415,7 +494,10 @@ function DetalhePedido({
             <XCircle className="h-4 w-4" /> Cancelar pedido
           </Button>
         ) : null}
-        <Button variant="outline" className="ml-auto" onClick={aoReimprimir}>
+        <Button variant="outline" className="ml-auto" onClick={() => void imprimirBluetooth()} disabled={imprimindo}>
+          <Bluetooth className="h-4 w-4" /> {imprimindo ? "Enviando…" : "Imprimir Bluetooth"}
+        </Button>
+        <Button variant="outline" onClick={aoReimprimir}>
           <Printer className="h-4 w-4" /> Imprimir novamente
         </Button>
         <Button variant="ghost" className="text-danger hover:bg-danger/10" onClick={aoExcluir}>
