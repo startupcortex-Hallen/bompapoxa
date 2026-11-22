@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   PlusCircle,
 } from "lucide-react";
+import { AutoPrintBluetooth } from "@/components/admin/AutoPrintBluetooth";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -106,6 +107,7 @@ function AdminLayout() {
       style={config ? estiloTema(config) : undefined}
       className="theme-cinema min-h-screen bg-background text-foreground md:grid md:grid-cols-[248px_1fr]"
     >
+      <AutoPrintBluetooth />
       <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-card/60 px-4 py-5 md:flex">
         <Link to="/" className="px-2" aria-label="Ver cardápio">
           <BrandLogo nome={config?.nome_estabelecimento} logoUrl={config?.logo_url} compacto />

@@ -367,6 +367,7 @@ export type EnderecoPedido = {
 export type Pedido = {
   id: string;
   numero: number;
+  tracking_token?: string | null;
   cliente_nome: string;
   cliente_telefone: string;
   cliente_email: string | null;

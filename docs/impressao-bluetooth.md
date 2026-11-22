@@ -9,7 +9,8 @@
 - Seleção de papel **58 mm** (32 colunas) ou **80 mm** (48 colunas).
 - Cupom formatado em ESC/POS com cabeçalho, pedido, cliente, endereço, itens, adicionais, observações, pagamento e totais.
 - Teste de impressão no painel.
-- Botão **Imprimir Bluetooth** no detalhe do pedido.
+- Botão **Imprimir Bluetooth** no detalhe e na lista de pedidos.
+- Impressão automática de novos pedidos com a opção ligada no painel e a impressora conectada no aparelho. Pedidos com pagamento online só entram na impressão automática depois da confirmação da InfinitePay.
 - App Android nativo com Bluetooth Clássico (SPP) e BLE.
 - Navegador com impressão BLE via Web Bluetooth.
 
@@ -35,7 +36,8 @@ A impressora precisa aceitar comandos **ESC/POS**. O pareamento Clássico deve s
 4. Toque em **Adicionar BLE** para abrir o seletor de dispositivos Bluetooth.
 5. Selecione a impressora e toque em **Conectar**.
 6. Use **Testar impressão** para conferir o cupom.
-7. No detalhe de um pedido, use **Imprimir Bluetooth**.
+7. Em **Admin > Pedidos**, ajuste o papel (58/80 mm) na barra de impressão e ative **Automática** se quiser imprimir cada novo pedido.
+8. Na lista ou no detalhe de um pedido, use **Imprimir** para uma via manual.
 
 A impressora fica salva no aparelho. Ao reabrir a tela, o sistema tenta reconectar automaticamente; se não conseguir, use **Reconectar**.
 
@@ -88,6 +90,7 @@ O APK acima é de **debug** e serve para instalação interna. Para publicar na 
 - O protocolo ESC/POS pode variar entre fabricantes. Se o cupom sair com caracteres estranhos, ajuste o code page no equipamento ou o driver.
 - A reconexão automática depende da permissão de Bluetooth do sistema; se o sistema revogar, selecione a impressora novamente.
 - A impressão Bluetooth é separada do agente local. O agente continua disponível para impressão automática em um PC.
+- A impressão automática Bluetooth funciona com o painel administrativo aberto no aparelho conectado. Não use junto com o agente local para evitar cupons duplicados.
 
 ## 7. Solução de problemas
 

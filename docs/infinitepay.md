@@ -175,6 +175,8 @@ A URL pode ser sobrescrita com `INFINITEPAY_WEBHOOK_URL`. O webhook não tem ass
 - Pedido cancelado não é marcado como pago, mesmo que o gateway envie `paid`; o evento fica registrado.
 - O cliente nunca escreve diretamente em pagamentos, eventos, webhooks ou fila de impressão.
 - A API Key nunca vai para o frontend.
+- No painel, pedidos InfinitePay exibem **Verificar pagamento** em vez de **Marcar pago**. O banco bloqueia alteração manual do status financeiro por usuários autenticados; somente o backend com `service_role` confirma pagamentos online.
+- Pedidos com pagamento manual (PIX manual, dinheiro ou cartão na máquina) continuam sendo confirmados pelo administrador.
 
 ## 10. Estados exibidos
 

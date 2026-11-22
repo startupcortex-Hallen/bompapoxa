@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { AdminSection } from "@/components/admin/ui";
 import { Badge } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/form";
+import { Select, Switch } from "@/components/ui/form";
 import { adminConfiguracoesQuery } from "@/lib/queries";
 import {
   carregarConfigImpressora,
@@ -76,9 +76,14 @@ export function BluetoothPrinter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const persistir = (printer: SavedPrinter | null, largura: PrinterConfig["width"]) => {
+  const persistir = (
+    printer: SavedPrinter | null,
+    largura: PrinterConfig["width"],
+    autoPrint = config.autoPrint,
+  ) => {
     const novo: PrinterConfig = {
       width: largura,
+      autoPrint,
       printer: printer ? { ...printer, width: largura } : null,
     };
     setConfig(novo);
@@ -89,6 +94,20 @@ export function BluetoothPrinter() {
   const mudarLargura = (largura: PrinterConfig["width"]) => {
     persistir(config.printer, largura);
     setAviso(`Papel configurado para ${largura} mm.`);
+  };
+
+  const mudarImpressaoAutomatica = (ativo: boolean) => {
+    if (ativo && !config.printer) {
+      setErro("Conecte uma impressora antes de ativar a impressão automática.");
+      return;
+    }
+    setErro(null);
+    persistir(config.printer, config.width, ativo);
+    setAviso(
+      ativo
+        ? "Impressão automática ativada. Novos pedidos serão impressos enquanto o painel estiver aberto."
+        : "Impressão automática desativada.",
+    );
   };
 
   const procurar = async () => {
@@ -179,7 +198,7 @@ export function BluetoothPrinter() {
     await desconectarImpressora(config.printer);
     limparConfigImpressora();
     setConectada(false);
-    setConfig({ printer: null, width: config.width });
+    setConfig(carregarConfigImpressora());
     setDispositivos([]);
     setAviso("Impressora removida. Procure e conecte outra.");
   };
@@ -246,6 +265,21 @@ export function BluetoothPrinter() {
               </Button>
             ) : null}
           </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-secondary/20 px-3.5 py-3">
+          <label className="flex items-center gap-2 text-sm">
+            <Switch
+              checked={config.autoPrint}
+              onChange={mudarImpressaoAutomatica}
+              label="Impressão automática de novos pedidos"
+              disabled={!config.printer}
+            />
+            Imprimir automaticamente os novos pedidos
+          </label>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Funciona com o painel aberto neste aparelho. Não use junto com o agente local para evitar cupons duplicados.
+          </p>
         </div>
 
         {erro ? (

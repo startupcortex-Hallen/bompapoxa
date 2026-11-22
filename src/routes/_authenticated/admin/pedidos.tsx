@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   Clock,
   MapPin,
   Printer,
+  RefreshCw,
   Search,
   Store,
   Trash2,
@@ -20,13 +21,19 @@ import { AdminPageHeader } from "@/components/admin/ui";
 import { StatusPagamentoBadge, StatusPedidoBadge } from "@/components/admin/status";
 import { Badge, EstadoVazio, Skeleton } from "@/components/ui/feedback";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/form";
+import { Checkbox, Switch } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
 import { adminConfiguracoesQuery, adminPedidosQuery, chaves } from "@/lib/queries";
 import { atualizarPagamentoPedido, atualizarStatusPedido, enfileirarReimpressao, excluirPedido } from "@/lib/api";
-import { imprimirPedidoBluetooth } from "@/lib/thermal/printer";
-import { mensagemBluetooth } from "@/lib/thermal/services";
-import type { TicketPayload } from "@/lib/thermal/ticket";
+import { sincronizarPagamentoOnline } from "@/lib/online-payments";
+import { montarPayloadImpressao } from "@/lib/thermal/order-payload";
+import {
+  atualizarConfigImpressora,
+  carregarConfigImpressora,
+  imprimirPedidoBluetooth,
+  type PrinterConfig,
+} from "@/lib/thermal/printer";
+import { PRINTER_CONFIG_EVENT, mensagemBluetooth } from "@/lib/thermal/services";
 import {
   PAGAMENTO_STATUS_LABEL,
   metodoPagamentoLabel,
@@ -35,7 +42,7 @@ import {
 import { dataHoraBR, horaBR, moedaBRL, tempoRelativo } from "@/lib/format";
 import { FORMA_PAGAMENTO_LABEL, MODALIDADE_LABEL, STATUS_DESCRICAO, STATUS_LABEL, proximosStatus } from "@/lib/order-status";
 import { useTitulo } from "@/lib/page-title";
-import type { Configuracoes, Pedido, StatusPedido } from "@/lib/types";
+import type { Pedido, StatusPedido } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin/pedidos")({
@@ -58,15 +65,45 @@ function PedidosPage() {
   useTitulo("Pedidos");
   const qc = useQueryClient();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery(adminPedidosQuery);
+  const config = useQuery(adminConfiguracoesQuery);
   const [filtro, setFiltro] = useState<Filtro>("andamento");
   const [busca, setBusca] = useState("");
   const [apenasPendentes, setApenasPendentes] = useState(false);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
+  const [impressora, setImpressora] = useState<PrinterConfig>(() => carregarConfigImpressora());
+
+  useEffect(() => {
+    const atualizar = () => setImpressora(carregarConfigImpressora());
+    window.addEventListener(PRINTER_CONFIG_EVENT, atualizar);
+    window.addEventListener("storage", atualizar);
+    return () => {
+      window.removeEventListener(PRINTER_CONFIG_EVENT, atualizar);
+      window.removeEventListener("storage", atualizar);
+    };
+  }, []);
+
+  const mudarPapel = (valor: "58" | "80") => {
+    const novo = atualizarConfigImpressora({ width: Number(valor) === 58 ? 58 : 80 });
+    setImpressora(novo);
+    toast.success(`Papel ${novo.width} mm configurado.`);
+  };
+
+  const alternarImpressaoAutomatica = (ativo: boolean) => {
+    if (ativo && !impressora.printer) {
+      toast.error("Conecte uma impressora Bluetooth antes de ativar a impressão automática.");
+      return;
+    }
+    const novo = atualizarConfigImpressora({ autoPrint: ativo });
+    setImpressora(novo);
+    toast.success(ativo ? "Impressão automática de novos pedidos ativada." : "Impressão automática desativada.");
+  };
 
   const invalidar = async () => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: chaves.adminPedidos }),
       qc.invalidateQueries({ queryKey: chaves.adminDashboard }),
+      qc.invalidateQueries({ queryKey: chaves.adminPagamentos }),
+      qc.invalidateQueries({ queryKey: chaves.adminFilaImpressao }),
       qc.invalidateQueries({ queryKey: chaves.cardapio }),
     ]);
   };
@@ -109,12 +146,40 @@ function PedidosPage() {
   };
 
   const marcarPago = async (pedido: Pedido) => {
+    if (pedido.pagamento_provedor === "infinitepay") {
+      toast.error("Pedidos online são confirmados automaticamente pela InfinitePay.");
+      return;
+    }
     try {
       await atualizarPagamentoPedido(pedido.id, pedido.status_pagamento === "pago" ? "pendente" : "pago");
       toast.success(pedido.status_pagamento === "pago" ? "Pagamento reaberto." : "Pagamento confirmado.");
       await invalidar();
     } catch (erro) {
       toast.error(erro instanceof Error ? erro.message : "Não foi possível atualizar o pagamento.");
+    }
+  };
+
+  const verificarPagamento = async (pedido: Pedido) => {
+    if (!pedido.tracking_token) {
+      toast.error("Token do pedido indisponível para consultar a InfinitePay.");
+      return;
+    }
+    try {
+      const resposta = await sincronizarPagamentoOnline({
+        pedidoId: pedido.id,
+        trackingToken: pedido.tracking_token,
+        forcar: true,
+      });
+      if (resposta.status === "aprovado") {
+        toast.success(`Pedido #${pedido.numero}: pagamento confirmado pela InfinitePay.`);
+      } else if (resposta.mensagem) {
+        toast.info(resposta.mensagem);
+      } else {
+        toast.info(`Pedido #${pedido.numero}: pagamento ${PAGAMENTO_STATUS_LABEL[resposta.status].toLowerCase()}.`);
+      }
+      await invalidar();
+    } catch (erro) {
+      toast.error(erro instanceof Error ? erro.message : "Não foi possível consultar o pagamento na InfinitePay.");
     }
   };
 
@@ -140,11 +205,20 @@ function PedidosPage() {
     }
   };
 
+  const imprimirNoBluetooth = async (pedido: Pedido) => {
+    try {
+      await imprimirPedidoBluetooth(montarPayloadImpressao(pedido, config.data?.configuracoes));
+      toast.success(`Pedido #${pedido.numero} enviado para a impressora Bluetooth (${impressora.width} mm).`);
+    } catch (erro) {
+      toast.error(mensagemBluetooth(erro, "Não foi possível imprimir no Bluetooth."));
+    }
+  };
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
         titulo="Pedidos"
-        descricao="Acompanhe a cozinha e atualize cada pedido. Novos pedidos entram como Recebido e pagamento Pendente; a disponibilidade dos produtos é controlada manualmente em Produtos. A lista é atualizada a cada 15 segundos."
+        descricao="Acompanhe a cozinha e atualize cada pedido. Pagamentos online são confirmados automaticamente pela InfinitePay; pedidos com pagamento manual podem ser confirmados no detalhe. A lista é atualizada a cada 15 segundos."
         acao={
           <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             <span className={cn("h-2 w-2 rounded-full", isFetching ? "bg-accent" : "bg-success")} />
@@ -152,6 +226,47 @@ function PedidosPage() {
           </span>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+        <div className="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
+          <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", impressora.printer ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground")}>
+            <Bluetooth className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Impressão Bluetooth</p>
+            <p className="text-[11px] text-muted-foreground">
+              {impressora.printer
+                ? `${impressora.printer.name} • ${impressora.width} mm • imprime novos pedidos com o painel aberto.`
+                : "Nenhuma impressora conectada neste aparelho."}
+            </p>
+          </div>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Papel
+            <select
+              value={String(impressora.width)}
+              onChange={(event) => mudarPapel(event.target.value === "58" ? "58" : "80")}
+              className="h-9 rounded-lg border border-border bg-card px-2.5 text-xs focus:border-primary focus:outline-none"
+            >
+              <option value="58">58 mm</option>
+              <option value="80">80 mm</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch
+              checked={impressora.autoPrint}
+              onChange={alternarImpressaoAutomatica}
+              label="Impressão automática de novos pedidos"
+              disabled={!impressora.printer}
+            />
+            Automática
+          </label>
+          <Link to="/admin/impressao" className="text-xs font-medium text-primary underline underline-offset-4">
+            {impressora.printer ? "Configurar" : "Conectar impressora"}
+          </Link>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
@@ -236,7 +351,16 @@ function PedidosPage() {
                       {ROTULO_ACAO[status]} <ArrowRight className="h-3.5 w-3.5" />
                     </Button>
                   ))}
-                  {pedido.status_pagamento !== "pago" && pedido.status !== "cancelado" ? (
+                  {impressora.printer ? (
+                    <Button size="sm" variant="outline" onClick={() => void imprimirNoBluetooth(pedido)}>
+                      <Bluetooth className="h-3.5 w-3.5" /> Imprimir {impressora.width} mm
+                    </Button>
+                  ) : null}
+                  {pedido.pagamento_provedor === "infinitepay" && pedido.status !== "cancelado" ? (
+                    <Button size="sm" variant="outline" onClick={() => void verificarPagamento(pedido)}>
+                      <RefreshCw className="h-3.5 w-3.5" /> Verificar pagamento
+                    </Button>
+                  ) : pedido.status_pagamento !== "pago" && pedido.status !== "cancelado" ? (
                     <Button size="sm" variant="outline" onClick={() => void marcarPago(pedido)}>
                       <CircleDollarSign className="h-3.5 w-3.5" /> Marcar pago
                     </Button>
@@ -268,6 +392,7 @@ function PedidosPage() {
             pedido={selecionado}
             aoMudarStatus={(status) => void mudarStatus(selecionado, status)}
             aoMarcarPago={() => void marcarPago(selecionado)}
+            aoVerificarPagamento={() => void verificarPagamento(selecionado)}
             aoExcluir={() => void excluir(selecionado)}
             aoReimprimir={() => void reimprimir(selecionado)}
           />
@@ -277,76 +402,18 @@ function PedidosPage() {
   );
 }
 
-function montarPayloadImpressao(pedido: Pedido, config?: Configuracoes): TicketPayload {
-  return {
-    pedido_id: pedido.id,
-    numero: pedido.numero,
-    criado_em: pedido.created_at,
-    status: pedido.status,
-    cliente_nome: pedido.cliente_nome,
-    cliente_telefone: pedido.cliente_telefone,
-    cliente_email: pedido.cliente_email,
-    modalidade: pedido.modalidade,
-    endereco: {
-      cep: pedido.cep,
-      endereco: pedido.endereco,
-      numero: pedido.numero_endereco,
-      complemento: pedido.complemento,
-      bairro: pedido.bairro,
-      cidade: pedido.cidade,
-      referencia: pedido.referencia,
-    },
-    itens: pedido.itens.map((item) => ({
-      nome: item.nome,
-      quantidade: item.quantidade,
-      preco_unitario: item.preco_unitario,
-      adicionais: item.adicionais.map((adicional) => ({ nome: adicional.nome, preco: adicional.preco })),
-      observacao: item.observacao,
-    })),
-    observacoes: pedido.observacoes,
-    forma_pagamento: pedido.forma_pagamento,
-    pagamento_provedor: pedido.pagamento_provedor,
-    pagamento_online_tipo: pedido.pagamento_online_tipo,
-    pagamento_status: pedido.status_pagamento,
-    pagamento_online: pedido.pagamento
-      ? {
-          status: pedido.pagamento.status,
-          status_gateway: pedido.pagamento.status_gateway,
-          tipo: pedido.pagamento.tipo,
-          metodo: pedido.pagamento.metodo,
-          gateway_order_id: pedido.pagamento.gateway_order_id,
-          gateway_payment_id: pedido.pagamento.gateway_payment_id,
-          gateway_checkout_id: pedido.pagamento.gateway_checkout_id,
-          receipt_url: pedido.pagamento.receipt_url,
-        }
-      : null,
-    troco_para: pedido.troco_para,
-    subtotal: pedido.subtotal,
-    taxa_entrega: pedido.taxa_entrega,
-    desconto: pedido.desconto,
-    total: pedido.total,
-    cupom_codigo: pedido.cupom_codigo,
-    estabelecimento: {
-      nome: config?.nome_estabelecimento ?? "BOM PA POXA",
-      endereco: config?.endereco ?? null,
-      bairro: config?.bairro ?? null,
-      cidade: config?.cidade ?? null,
-      telefone: config?.telefone ?? null,
-      whatsapp: config?.whatsapp ?? null,
-    },
-  };
-}
-
 function DetalhePedido({
   pedido,
   aoMudarStatus,
   aoMarcarPago,
+  aoVerificarPagamento,
   aoExcluir,
   aoReimprimir,
 }: {
   pedido: Pedido;
   aoMudarStatus: (status: StatusPedido) => void;
   aoMarcarPago: () => void;
+  aoVerificarPagamento: () => void;
   aoExcluir: () => void;
   aoReimprimir: () => void;
 }) {
@@ -486,7 +553,11 @@ function DetalhePedido({
             <CheckCircle2 className="h-4 w-4" /> {ROTULO_ACAO[status]}
           </Button>
         ))}
-        {pedido.status_pagamento !== "pago" && pedido.status !== "cancelado" ? (
+        {pedido.pagamento_provedor === "infinitepay" && pedido.status !== "cancelado" ? (
+          <Button variant="outline" onClick={aoVerificarPagamento}>
+            <RefreshCw className="h-4 w-4" /> Verificar pagamento
+          </Button>
+        ) : pedido.status_pagamento !== "pago" && pedido.status !== "cancelado" ? (
           <Button variant="outline" onClick={aoMarcarPago}><CircleDollarSign className="h-4 w-4" /> Marcar pago</Button>
         ) : null}
         {!["entregue", "retirado", "cancelado"].includes(pedido.status) ? (

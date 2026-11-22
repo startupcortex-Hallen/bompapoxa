@@ -34,6 +34,7 @@ export const COMMON_PRINTER_SERVICES = [
 ] as const;
 
 export const STORAGE_KEY = "bompapoxa.impressora.bluetooth.v1";
+export const PRINTER_CONFIG_EVENT = "bompapoxa:impressora";
 
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

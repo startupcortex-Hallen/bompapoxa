@@ -271,6 +271,7 @@ export function mapPedido(
   return {
     id: textoOu(row.id),
     numero: numero(row.numero),
+    tracking_token: texto(row.tracking_token),
     cliente_nome: textoOu(row.cliente_nome),
     cliente_telefone: textoOu(row.cliente_telefone),
     cliente_email: texto(row.cliente_email),

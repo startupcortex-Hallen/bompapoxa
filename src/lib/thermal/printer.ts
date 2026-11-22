@@ -14,6 +14,7 @@ import {
   suportaClassicoNativo,
 } from "./native-bluetooth";
 import {
+  PRINTER_CONFIG_EVENT,
   STORAGE_KEY,
   type PrinterDevice,
   type PrinterWidth,
@@ -33,6 +34,7 @@ import { formatTicket, type TicketPayload } from "./ticket";
 export type PrinterConfig = {
   printer: SavedPrinter | null;
   width: PrinterWidth;
+  autoPrint: boolean;
 };
 
 export type PrinterSupport = {
@@ -43,7 +45,7 @@ export type PrinterSupport = {
   mensagem: string;
 };
 
-const CONFIG_PADRAO: PrinterConfig = { printer: null, width: 80 };
+const CONFIG_PADRAO: PrinterConfig = { printer: null, width: 80, autoPrint: false };
 
 export function carregarConfigImpressora(): PrinterConfig {
   if (typeof window === "undefined") return CONFIG_PADRAO;
@@ -52,12 +54,14 @@ export function carregarConfigImpressora(): PrinterConfig {
     if (!bruto) return CONFIG_PADRAO;
     const dados = JSON.parse(bruto) as Partial<PrinterConfig> & { printer?: Partial<SavedPrinter> | null };
     const largura: PrinterWidth = Number(dados.width) === 58 ? 58 : 80;
+    const autoPrint = dados.autoPrint === true;
     const printer = dados.printer;
     if (!printer || typeof printer.id !== "string" || typeof printer.name !== "string") {
-      return { printer: null, width: largura };
+      return { printer: null, width: largura, autoPrint };
     }
     return {
       width: Number(printer.width) === 58 ? 58 : largura,
+      autoPrint,
       printer: {
         id: printer.id,
         name: printer.name,
@@ -77,15 +81,30 @@ export function salvarConfigImpressora(config: PrinterConfig): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    window.dispatchEvent(new CustomEvent(PRINTER_CONFIG_EVENT, { detail: config }));
   } catch {
     // A impressão continua funcionando mesmo se o navegador bloquear o armazenamento.
   }
+}
+
+export function atualizarConfigImpressora(patch: Partial<PrinterConfig>): PrinterConfig {
+  const atual = carregarConfigImpressora();
+  const width = patch.width ?? atual.width;
+  const base = patch.printer !== undefined ? patch.printer : atual.printer;
+  const novo: PrinterConfig = {
+    width,
+    autoPrint: patch.autoPrint ?? atual.autoPrint,
+    printer: base ? { ...base, width } : null,
+  };
+  salvarConfigImpressora(novo);
+  return novo;
 }
 
 export function limparConfigImpressora(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
+    window.dispatchEvent(new CustomEvent(PRINTER_CONFIG_EVENT, { detail: CONFIG_PADRAO }));
   } catch {
     // Ignora.
   }

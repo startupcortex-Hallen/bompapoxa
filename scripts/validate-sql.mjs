@@ -9,6 +9,7 @@ const migrations = [
   "supabase/migrations/202611170004_bompapoxa_combos_configuraveis.sql",
   "supabase/migrations/202611180001_bompapoxa_pagamentos_impressao.sql",
   "supabase/migrations/202611190001_bompapoxa_infinitepay.sql",
+  "supabase/migrations/202611220001_bompapoxa_protege_pagamento_online.sql",
 ];
 const db = new PGlite();
 
@@ -587,6 +588,43 @@ const pedidoTransicao = await db.query(
 assert.equal(pedidoTransicao.rows[0].pagamento_provedor, "manual");
 assert.equal(pedidoTransicao.rows[0].pagamento_online_tipo, null);
 assert.equal(pedidoTransicao.rows[0].status_pagamento, "pago", "status financeiro do pedido deve ser preservado");
+
+await db.exec(`
+  update public.cardapio_exemplo_pedidos
+  set pagamento_provedor = 'infinitepay', status_pagamento = 'pendente'
+  where id = '${criado.pedido_id}';
+`);
+
+await db.exec("select set_config('request.jwt.claim.role', 'authenticated', false);");
+let pagamentoOnlineBloqueado = false;
+try {
+  await db.query(
+    "update public.cardapio_exemplo_pedidos set status_pagamento = 'pago' where id = $1",
+    [criado.pedido_id],
+  );
+} catch {
+  pagamentoOnlineBloqueado = true;
+}
+assert.equal(
+  pagamentoOnlineBloqueado,
+  true,
+  "administrador nao pode confirmar manualmente pagamento online",
+);
+
+await db.exec("select set_config('request.jwt.claim.role', 'service_role', false);");
+await db.query(
+  "update public.cardapio_exemplo_pedidos set status_pagamento = 'pago' where id = $1",
+  [criado.pedido_id],
+);
+const pedidoOnlinePago = await db.query(
+  "select status_pagamento from public.cardapio_exemplo_pedidos where id = $1",
+  [criado.pedido_id],
+);
+assert.equal(
+  pedidoOnlinePago.rows[0].status_pagamento,
+  "pago",
+  "backend com service_role deve confirmar pagamento online",
+);
 
 await db.close();
 console.log("Validação SQL concluída: schema, pedidos, cupom, histórico, pagamentos, transição, impressão e RLS aprovados.");
