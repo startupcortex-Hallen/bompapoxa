@@ -1,10 +1,15 @@
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { Link } from "@tanstack/react-router";
+import { layoutPublicoQuery } from "@/lib/queries";
+import { estiloTema } from "@/lib/theme";
 
 export function AuthLayout({ children, titulo, subtitulo }: { children: ReactNode; titulo: string; subtitulo?: string }) {
+  const { data } = useQuery(layoutPublicoQuery);
+  const config = data?.configuracoes;
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div style={config ? estiloTema(config) : undefined} className="theme-cinema min-h-screen bg-background text-foreground">
       <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
         <div className="relative hidden overflow-hidden border-r border-border lg:flex lg:flex-col lg:justify-between lg:p-12">
           <div className="pattern-hero absolute inset-0 opacity-70" />

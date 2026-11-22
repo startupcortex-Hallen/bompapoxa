@@ -52,6 +52,19 @@ export function textoSobre(cor: string): string {
   return luminancia(cor) > 0.45 ? "#1F140F" : "#FFF9F1";
 }
 
+function hexParaRgb(hex: string): [number, number, number] {
+  const valor = validarHex(hex) ? hex.slice(1) : "000000";
+  const numero = Number.parseInt(valor, 16);
+  return [(numero >> 16) & 255, (numero >> 8) & 255, numero & 255];
+}
+
+function misturar(base: string, outra: string, pesoOutra: number): string {
+  const [r1, g1, b1] = hexParaRgb(base);
+  const [r2, g2, b2] = hexParaRgb(outra);
+  const misturarCanal = (a: number, b: number) => Math.round(a * (1 - pesoOutra) + b * pesoOutra);
+  return `rgb(${misturarCanal(r1, r2)}, ${misturarCanal(g1, g2)}, ${misturarCanal(b1, b2)})`;
+}
+
 export function estiloTema(configuracoes: {
   cor_primaria: string;
   cor_secundaria: string;
@@ -66,6 +79,10 @@ export function estiloTema(configuracoes: {
   const destaque = validarHex(configuracoes.cor_destaque) ? configuracoes.cor_destaque : "#E8A33D";
   const fundo = validarHex(configuracoes.cor_fundo) ? configuracoes.cor_fundo : "#FAF5EC";
   const texto = validarHex(configuracoes.cor_texto) ? configuracoes.cor_texto : "#2A1710";
+  const cartao = misturar(fundo, texto, 0.06);
+  const muted = misturar(fundo, texto, 0.1);
+  const mutedFg = misturar(texto, fundo, 0.36);
+  const borda = misturar(texto, fundo, 0.86);
   return {
     "--app-primary": primaria,
     "--app-primary-foreground": textoSobre(primaria),
@@ -74,11 +91,26 @@ export function estiloTema(configuracoes: {
     "--app-accent-foreground": textoSobre(destaque),
     "--app-background": fundo,
     "--app-foreground": texto,
-    "--app-card": `color-mix(in srgb, ${fundo} 94%, ${texto})`,
-    "--app-muted": `color-mix(in srgb, ${fundo} 90%, ${texto})`,
-    "--app-muted-foreground": `color-mix(in srgb, ${texto} 64%, ${fundo})`,
-    "--app-border": `color-mix(in srgb, ${texto} 14%, ${fundo})`,
+    "--app-card": cartao,
+    "--app-muted": muted,
+    "--app-muted-foreground": mutedFg,
+    "--app-border": borda,
     "--app-font-display": fonte.display,
     "--app-font-sans": fonte.sans,
+    "--color-primary": primaria,
+    "--color-primary-foreground": textoSobre(primaria),
+    "--color-secondary": secundaria,
+    "--color-secondary-foreground": textoSobre(secundaria),
+    "--color-accent": destaque,
+    "--color-accent-foreground": textoSobre(destaque),
+    "--color-background": fundo,
+    "--color-foreground": texto,
+    "--color-card": cartao,
+    "--color-card-foreground": texto,
+    "--color-muted": muted,
+    "--color-muted-foreground": mutedFg,
+    "--color-border": borda,
+    "--color-input": borda,
+    "--color-ring": primaria,
   } as CSSProperties;
 }

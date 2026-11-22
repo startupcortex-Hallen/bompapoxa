@@ -57,6 +57,21 @@
   --app-muted: #1c1c1c;
   --app-muted-foreground: #a3a3a3;
   --app-border: rgb(255 255 255 / 0.12);
+  --color-primary: #e50914;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #141414;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #d6a65c;
+  --color-accent-foreground: #090909;
+  --color-background: #090909;
+  --color-foreground: #ffffff;
+  --color-card: #141414;
+  --color-card-foreground: #ffffff;
+  --color-muted: #1c1c1c;
+  --color-muted-foreground: #a3a3a3;
+  --color-border: rgb(255 255 255 / 0.12);
+  --color-input: rgb(255 255 255 / 0.12);
+  --color-ring: #e50914;
   color-scheme: dark;
 }
 
